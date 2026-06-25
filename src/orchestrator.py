@@ -1,4 +1,5 @@
 import json
+import random
 import logging
 from typing import List, Dict, Any
 from config import settings
@@ -66,9 +67,14 @@ def run_pipeline() -> bool:
         return False
 
     with open(settings.COMPANIES_JSON_PATH, "r") as f:
-        companies = json.load(f)
+        all_companies = json.load(f)
 
-    logger.info(f"Loaded {len(companies)} target companies from configuration.")
+    # Shuffle and pick a random subset each day so different companies appear daily
+    random.shuffle(all_companies)
+    DAILY_SCRAPE_LIMIT = 120
+    companies = all_companies[:DAILY_SCRAPE_LIMIT]
+
+    logger.info(f"Randomly selected {len(companies)} companies from {len(all_companies)} total for today's run.")
     
     # 2. Load Excel History for Deduplication (Last 90 Days)
     seen_titles_companies, seen_links = load_history_signatures()
