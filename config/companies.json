@@ -724,5 +724,71 @@
     "ats": "ashby",
     "token": "horizon3ai",
     "careers_url": "https://www.horizon3.ai/careers"
+  },
+  {
+    "name": "McAfee",
+    "ats": "greenhouse",
+    "token": "mcafee",
+    "careers_url": ""
+  },
+  {
+    "name": "KnowBe4",
+    "ats": "greenhouse",
+    "token": "knowbe4",
+    "careers_url": ""
+  },
+  {
+    "name": "Cybereason",
+    "ats": "greenhouse",
+    "token": "cybereason",
+    "careers_url": ""
+  },
+  {
+    "name": "SonicWall",
+    "ats": "greenhouse",
+    "token": "sonicwall",
+    "careers_url": ""
+  },
+  {
+    "name": "LastPass",
+    "ats": "greenhouse",
+    "token": "lastpass",
+    "careers_url": ""
+  },
+  {
+    "name": "Dashlane",
+    "ats": "greenhouse",
+    "token": "dashlane",
+    "careers_url": ""
+  },
+  {
+    "name": "Veracode",
+    "ats": "greenhouse",
+    "token": "veracode",
+    "careers_url": ""
+  },
+  {
+    "name": "Huntress",
+    "ats": "greenhouse",
+    "token": "huntress",
+    "careers_url": ""
+  },
+  {
+    "name": "Cyware",
+    "ats": "greenhouse",
+    "token": "cyware",
+    "careers_url": ""
+  },
+  {
+    "name": "HackerOne",
+    "ats": "ashby",
+    "token": "hackerone",
+    "careers_url": ""
+  },
+  {
+    "name": "Todyl",
+    "ats": "ashby",
+    "token": "todyl",
+    "careers_url": ""
   }
 ]

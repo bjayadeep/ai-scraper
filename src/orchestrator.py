@@ -116,7 +116,7 @@ def run_pipeline() -> bool:
 
     # How many jobs to forward per company to Claude for validation
     # Setting to 2 gives Claude more candidates per company, helping reach 30-35 final jobs
-    JOBS_PER_COMPANY_FOR_CLAUDE = 3
+    JOBS_PER_COMPANY_FOR_CLAUDE = 2
 
     pre_diversity_jobs: List[Dict[str, Any]] = []
     for comp_name, comp_jobs in jobs_by_company.items():
@@ -147,19 +147,17 @@ def run_pipeline() -> bool:
 
     logger.info(f"After Claude AI filter: {len(valid_jobs)} jobs approved.")
 
-    # 7. Final Company Diversity Enforcement (top 2 Claude-approved jobs per company)
-    FINAL_JOBS_PER_COMPANY = 3
-    final_by_company: Dict[str, List[Dict[str, Any]]] = {}
+    # 7. Final Company Diversity Enforcement (1 best Claude-approved job per company)
+    final_by_company: Dict[str, Dict[str, Any]] = {}
     for job in valid_jobs:
         comp = job["company"]
         if comp not in final_by_company:
-            final_by_company[comp] = []
-        final_by_company[comp].append(job)
+            final_by_company[comp] = job
+        else:
+            if rate_job_relevance(job) > rate_job_relevance(final_by_company[comp]):
+                final_by_company[comp] = job
 
-    diverse_final = []
-    for comp_name, comp_jobs in final_by_company.items():
-        sorted_comp = sorted(comp_jobs, key=rate_job_relevance, reverse=True)
-        diverse_final.extend(sorted_comp[:FINAL_JOBS_PER_COMPANY])
+    diverse_final = list(final_by_company.values())
     logger.info(f"After final diversity enforcement: {len(diverse_final)} unique companies with approved jobs.")
 
     # 8. Sort by newest first and select top 30-40 jobs
@@ -169,7 +167,7 @@ def run_pipeline() -> bool:
     sorted_jobs = sorted(diverse_final, key=get_sort_key, reverse=True)
 
     # Select top 40 jobs for the report
-    final_selection = sorted_jobs[:50]
+    final_selection = sorted_jobs[:40]
     logger.info(f"Selected top {len(final_selection)} jobs for report generation.")
     
     if not final_selection:

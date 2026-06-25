@@ -25,7 +25,8 @@ class GreenhouseScraper(BaseScraper):
             
             for job in jobs:
                 title = job.get("title", "").strip()
-                location = job.get("location", {}).get("name", "").strip()
+                location = (job.get("location") or {}).get("name") or ""
+                location = location.strip()
                 apply_link = job.get("absolute_url", "").strip()
                 description = job.get("content", "").strip()
                 updated_at = job.get("updated_at", "")
