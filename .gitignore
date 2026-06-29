@@ -4,3 +4,5 @@ __pycache__/
 pipeline.log
 .claude/
 ~$*
+bulk_discover.py
+personal_pipeline.log

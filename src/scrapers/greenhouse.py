@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 class GreenhouseScraper(BaseScraper):
     def scrape(self) -> List[Dict[str, Any]]:
         jobs_list = []
+        
         # Greenhouse board API url
         # Passing content=true fetches the job description text under "content"
         url = f"https://boards-api.greenhouse.io/v1/boards/{self.token}/jobs?content=true"
