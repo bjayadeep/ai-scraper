@@ -12,15 +12,35 @@ SECURITY_KEYWORDS = [
     r"\bthreat\b", r"\bincident\b", r"\bsiem\b", r"\bcryptography\b"
 ]
 
-# Title patterns to exclude (false positives)
+# Title patterns to exclude (false positives and non-cyber roles)
 EXCLUDE_TITLE_PATTERNS = [
-    r"\bsecurities\b",         # e.g., Securities Trader, Financial Securities
-    r"\bphysical security\b", # e.g., Physical Security Guard
-    r"\bguard\b",              # e.g., Security Guard
-    r"\bofficer\b",            # e.g., Security Officer (usually physical)
-    r"\bloss prevention\b",   # e.g., Loss Prevention Specialist
-    r"\bfood security\b",      # e.g., Food Security Coordinator
-    r"\bhome security\b"       # e.g., Home Security Installer
+    r"\bsecurities\b",
+    r"\bphysical security\b",
+    r"\bguard\b",
+    r"\bofficer\b",
+    r"\bloss prevention\b",
+    r"\bfood security\b",
+    r"\bhome security\b",
+    r"\bsales\b",
+    r"\baccount\s+executive\b",
+    r"\bchannel\b",
+    r"\bbrand\b",
+    r"\bmarketing\b",
+    r"\bcounsel\b",
+    r"\battorney\b",
+    r"\blegal\b",
+    r"\brecruiter\b",
+    r"\badministrative\b",
+    r"\bfellowship\b",
+    r"\bskillbridge\b",
+    r"\bvice\s+president\b",
+    r"\barea\s+vice\b",
+    r"\bstaff\b",
+    r"\bprincipal\b",
+    r"\bdirector\b",
+    r"\bhead\s+of\b",
+    r"\bchief\b",
+    r"\bgroup\s+product\b",
 ]
 
 # Experience regexes
