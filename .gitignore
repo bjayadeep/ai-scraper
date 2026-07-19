@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+pipeline.log
+.claude/
+~$*
+bulk_discover.py
+personal_pipeline.log
+node_modules/
+frontend/dist/
+ai/cyberjobs.db 
+ai/data/history/ 
