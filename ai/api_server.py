@@ -15,9 +15,11 @@ import jwt
 current_dir = Path(__file__).resolve().parent
 sys.path.append(str(current_dir))
 
-from db import SessionLocal, User, Company, Job, ActivityLog, get_db, hash_password, verify_password, init_db
+from db import SessionLocal, User, Company, Job, ActivityLog, Setting, get_db, hash_password, verify_password, init_db
 from scrape_trigger import scrape_single_company
 from config import settings
+from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, PlaywrightScraper
+from src.orchestrator import scrape_try_all
 
 # Load environmental variables
 JWT_SECRET = os.getenv("JWT_SECRET", "supersecretjwtkey123!@#")
@@ -275,6 +277,116 @@ def get_companies(
         "data": companies
     }
 
+def validate_and_detect_ats(ats: str, token: Optional[str], careers_url: Optional[str], company_name: str) -> str:
+    """
+    Validates that the provided token or careers_url actually resolves to a real live board.
+    For 'all', tries to auto-detect and returns the name of the successful scraper.
+    """
+    import requests
+    import urllib.parse
+    
+    ats = ats.strip().lower()
+    token_str = token.strip().lower() if token else ""
+    url_str = careers_url.strip() if careers_url else ""
+    
+    # 1. Greenhouse
+    if ats == "greenhouse":
+        if not token_str:
+            raise HTTPException(status_code=400, detail="ATS token slug is required for Greenhouse.")
+        try:
+            scraper = GreenhouseScraper(company_name, token_str, url_str)
+            jobs = scraper.scrape()
+            if not jobs:
+                raise ValueError("No jobs returned")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not find a job board for this company — check the token/URL and ATS type."
+            )
+        return "greenhouse"
+
+    # 2. Lever
+    elif ats == "lever":
+        if not token_str:
+            raise HTTPException(status_code=400, detail="ATS token slug is required for Lever.")
+        try:
+            scraper = LeverScraper(company_name, token_str, url_str)
+            jobs = scraper.scrape()
+            if not jobs:
+                raise ValueError("No jobs returned")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not find a job board for this company — check the token/URL and ATS type."
+            )
+        return "lever"
+
+    # 3. Ashby
+    elif ats == "ashby":
+        if not token_str:
+            raise HTTPException(status_code=400, detail="ATS token slug is required for Ashby.")
+        try:
+            scraper = AshbyScraper(company_name, token_str, url_str)
+            jobs = scraper.scrape()
+            if not jobs:
+                raise ValueError("No jobs returned")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not find a job board for this company — check the token/URL and ATS type."
+            )
+        return "ashby"
+
+    # 4. Playwright Custom Crawler
+    elif ats == "playwright":
+        if not url_str:
+            raise HTTPException(status_code=400, detail="Careers Page URL is required for Playwright Custom Crawler.")
+        
+        # Verify URL is valid
+        parsed = urllib.parse.urlparse(url_str)
+        if not parsed.scheme or not parsed.netloc:
+            raise HTTPException(status_code=400, detail="Invalid Careers Page URL.")
+            
+        # Verify reachability via HTTP 200
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            resp = requests.get(url_str, headers=headers, timeout=15, allow_redirects=True)
+            if resp.status_code != 200:
+                raise ValueError(f"Status code {resp.status_code}")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Careers URL is unreachable or returned non-200 status code: {str(e)}"
+            )
+        return "playwright"
+
+    # 5. "All" (Try to auto-detect)
+    elif ats == "all":
+        # Make sure at least token or careers_url is provided
+        if not token_str and not url_str:
+            raise HTTPException(status_code=400, detail="Either ATS Token Slug or Careers Page URL is required for 'All' detection.")
+        
+        detected_ats, jobs = scrape_try_all(company_name, token_str, url_str)
+        if not detected_ats:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not verify this company against any supported ATS provider."
+            )
+        return detected_ats
+
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported ATS type: {ats}")
+
 @router.post("/companies", response_model=CompanyResponse)
 def create_company(req: CompanyCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Duplicate checks
@@ -287,9 +399,17 @@ def create_company(req: CompanyCreate, db: Session = Depends(get_db), current_us
         if existing_token:
             raise HTTPException(status_code=400, detail="Company with this ATS token already exists.")
             
+    # Validate and detect correct ATS
+    detected_ats = validate_and_detect_ats(
+        ats=req.ats,
+        token=req.token,
+        careers_url=req.careers_url,
+        company_name=req.name
+    )
+
     company = Company(
         name=req.name.strip(),
-        ats=req.ats.strip().lower(),
+        ats=detected_ats,
         token=req.token.strip().lower() if req.token else None,
         careers_url=req.careers_url.strip() if req.careers_url else ""
     )
@@ -325,9 +445,17 @@ def update_company(id: int, req: CompanyCreate, db: Session = Depends(get_db), c
         if existing_token:
             raise HTTPException(status_code=400, detail="Company with this ATS token already exists.")
             
+    # Validate and detect correct ATS
+    detected_ats = validate_and_detect_ats(
+        ats=req.ats,
+        token=req.token,
+        careers_url=req.careers_url,
+        company_name=req.name
+    )
+
     old_details = f"{company.name} ({company.ats})"
     company.name = req.name.strip()
-    company.ats = req.ats.strip().lower()
+    company.ats = detected_ats
     company.token = req.token.strip().lower() if req.token else None
     company.careers_url = req.careers_url.strip() if req.careers_url else ""
     
@@ -496,21 +624,49 @@ def get_activity_logs(
 @router.get("/settings")
 def get_sys_settings(current_user: User = Depends(get_current_user)):
     return {
-        "min_experience": int(os.getenv("MIN_EXPERIENCE", settings.EXPERIENCE_MIN_YEARS)),
-        "max_experience": int(os.getenv("MAX_EXPERIENCE", settings.EXPERIENCE_MAX_YEARS)),
-        "use_ai_filter": os.getenv("USE_AI_FILTER", "false").lower() == "true",
-        "smtp_host": os.getenv("SMTP_HOST", "smtp.gmail.com"),
-        "smtp_port": int(os.getenv("SMTP_PORT", "587")),
-        "smtp_user": os.getenv("SMTP_USER", ""),
-        "smtp_password": os.getenv("SMTP_PASSWORD", ""),
-        "email_to": os.getenv("EMAIL_TO", ""),
-        "email_from": os.getenv("EMAIL_FROM", ""),
-        "claude_api_key": os.getenv("CLAUDE_API_KEY", "")
+        "min_experience": settings.EXPERIENCE_MIN_YEARS,
+        "max_experience": settings.EXPERIENCE_MAX_YEARS,
+        "use_ai_filter": settings.USE_AI_FILTER,
+        "smtp_host": settings.SMTP_HOST,
+        "smtp_port": settings.SMTP_PORT,
+        "smtp_user": settings.SMTP_USER,
+        "smtp_password": settings.SMTP_PASSWORD,
+        "email_to": settings.EMAIL_TO,
+        "email_from": settings.EMAIL_FROM,
+        "claude_api_key": settings.CLAUDE_API_KEY
     }
 
 @router.post("/settings")
 def update_sys_settings(req: SettingsUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Write settings back to .env file
+    # 1. Write settings to database
+    db_keys = {
+        "min_experience": str(req.min_experience),
+        "max_experience": str(req.max_experience),
+        "use_ai_filter": "true" if req.use_ai_filter else "false",
+        "smtp_host": req.smtp_host,
+        "smtp_port": str(req.smtp_port),
+        "smtp_user": req.smtp_user,
+        "smtp_password": req.smtp_password,
+        "email_to": req.email_to,
+        "email_from": req.email_from,
+    }
+    if req.claude_api_key:
+        db_keys["claude_api_key"] = req.claude_api_key
+
+    try:
+        for k, v in db_keys.items():
+            setting_obj = db.query(Setting).filter(Setting.key == k).first()
+            if setting_obj:
+                setting_obj.value = v
+            else:
+                setting_obj = Setting(key=k, value=v)
+                db.add(setting_obj)
+        db.commit()
+    except Exception as db_err:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to save settings to database: {str(db_err)}")
+
+    # 2. Write settings back to .env file
     env_path = current_dir.parent / ".env"
     
     env_lines = []
@@ -554,7 +710,7 @@ def update_sys_settings(req: SettingsUpdate, db: Session = Depends(get_db), curr
         for key, val in updated_keys.items():
             os.environ[key] = val
             
-        # Update setting constants dynamically in settings.py module
+        # Update setting constants dynamically in settings.py module wrapper if needed
         settings.EXPERIENCE_MIN_YEARS = req.min_experience
         settings.EXPERIENCE_MAX_YEARS = req.max_experience
         settings.USE_AI_FILTER = req.use_ai_filter

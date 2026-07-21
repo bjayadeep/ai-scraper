@@ -31,7 +31,7 @@ export default function Home() {
         </div>
         <div className="text-center">
           <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            CyberTalent ATS
+            ATS Platform
           </p>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
             Initialising secure session…

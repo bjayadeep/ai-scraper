@@ -1,6 +1,7 @@
 import re
 import logging
 from typing import Dict, Any, Tuple
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -131,15 +132,17 @@ def parse_experience(description: str, title: str = "") -> Tuple[bool, str]:
     Returns:
         Tuple[bool, str]: (is_within_range, extracted_experience_string)
         
-    Range: 1 to 6 years.
+    Range: Dynamic based on settings.
     """
+    min_exp_limit = settings.EXPERIENCE_MIN_YEARS
+    max_exp_limit = settings.EXPERIENCE_MAX_YEARS
     title_lower = title.lower()
     desc_clean = clean_html(description)
     desc_lower = desc_clean.lower()
     
     # First heuristic: Check title for seniority level. 
     # If the title is "Senior ...", "Principal ...", "Lead ...", "Director ...", 
-    # it is highly likely to require more than 6 years of experience.
+    # it is highly likely to require more than max_exp_limit years of experience.
     # However, some companies call 5-6 years "Senior". So we still parse the description,
     # but we flag it if there's no experience text found.
     is_senior_title = any(re.search(pat, title_lower) for pat in SENIORITY_EXCLUSIONS)
@@ -167,30 +170,33 @@ def parse_experience(description: str, title: str = "") -> Tuple[bool, str]:
                     found_years.append(int(match))
                     experience_mentions.append(f"{match} years")
                     
-    # If we extracted years, let's analyze if they fit within 1-6 years
+    # If we extracted years, let's analyze if they fit within limits
     if found_years:
         max_exp = max(found_years)
         min_exp = min(found_years)
         
-        # If the minimum experience required is greater than 6, reject
-        if min_exp > 6:
-            return False, f"Requires {min_exp}+ yrs (exceeds 6 yrs)"
+        # If the minimum experience required is greater than max_exp_limit, reject
+        if min_exp > max_exp_limit:
+            return False, f"Requires {min_exp}+ yrs (exceeds {max_exp_limit} yrs)"
 
-        # If the maximum experience requested is greater than 8 and title is senior, reject
-        if max_exp > 8 and is_senior_title:
+        # If the maximum experience required is less than min_exp_limit, reject
+        if max_exp < min_exp_limit:
+            return False, f"Requires {max_exp} yrs (below {min_exp_limit} yrs)"
+
+        # If the maximum experience requested is greater than (max_exp_limit + 2) and title is senior, reject
+        if max_exp > (max_exp_limit + 2) and is_senior_title:
             return False, f"Requires {max_exp} yrs (Senior/Principal)"
             
         return True, ", ".join(experience_mentions[:2])
         
     # Heuristic fallback: If no years of experience mentioned in description
     if is_senior_title:
-        # Senior / Principal titles with no exp details might be 8+ years, reject to be safe for 1-6 MVP
-        # But "Lead" / "Manager" are definitely out of range
+        # Senior / Principal titles with no exp details might be too senior
         if any(w in title_lower for w in ["principal", "director", "manager", "chief", "head", "vp"]):
-            return False, "Senior leadership role (assumed > 6 yrs)"
+            return False, f"Senior leadership role (assumed > {max_exp_limit} yrs)"
         return True, "Assumed mid-level senior"
         
-    return True, "Not specified (Assumed 1-6 yrs)"
+    return True, f"Not specified (Assumed {min_exp_limit}-{max_exp_limit} yrs)"
 
 def filter_job(job: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
     """

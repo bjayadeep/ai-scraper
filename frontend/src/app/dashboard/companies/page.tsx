@@ -13,7 +13,8 @@ import {
   Check, 
   Loader2, 
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  ChevronDown
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -159,15 +160,20 @@ export default function CompaniesPage() {
       return;
     }
 
-    if (ats !== "playwright" && !token) {
+    if (ats !== "playwright" && ats !== "all" && !token) {
       setFormError(`ATS token slug is required for ${ats}.`);
+      return;
+    }
+
+    if (ats === "all" && !token && !careersUrl) {
+      setFormError("Either ATS token slug or Careers Page URL is required for 'All'.");
       return;
     }
 
     const payload = {
       name,
       ats,
-      token: ats === "playwright" ? null : token,
+      token: (ats === "playwright" || (ats === "all" && !token)) ? null : token,
       careers_url: careersUrl
     };
 
@@ -191,15 +197,20 @@ export default function CompaniesPage() {
       return;
     }
 
-    if (ats !== "playwright" && !token) {
+    if (ats !== "playwright" && ats !== "all" && !token) {
       setFormError(`ATS token slug is required for ${ats}.`);
+      return;
+    }
+
+    if (ats === "all" && !token && !careersUrl) {
+      setFormError("Either ATS token slug or Careers Page URL is required for 'All'.");
       return;
     }
 
     const payload = {
       name,
       ats,
-      token: ats === "playwright" ? null : token,
+      token: (ats === "playwright" || (ats === "all" && !token)) ? null : token,
       careers_url: careersUrl
     };
 
@@ -240,17 +251,20 @@ export default function CompaniesPage() {
         </div>
 
         {/* ATS Filter */}
-        <select
-          value={atsFilter}
-          onChange={(e) => { setAtsFilter(e.target.value); setPage(1); }}
-          className="rounded-xl border border-[#EADFCF] bg-[#FFFDFC] px-3 py-1.5 text-xs text-[#5B5F4A] outline-none focus:border-[#2F6F5E] cursor-pointer w-full sm:w-auto font-semibold"
-        >
-          <option value="">All Integration Types</option>
-          <option value="greenhouse">Greenhouse API</option>
-          <option value="lever">Lever API</option>
-          <option value="ashby">Ashby API</option>
-          <option value="playwright">Playwright Custom Crawler</option>
-        </select>
+        <div className="relative w-full sm:w-auto">
+          <select
+            value={atsFilter}
+            onChange={(e) => { setAtsFilter(e.target.value); setPage(1); }}
+            className="w-full sm:w-auto appearance-none rounded-xl border border-[#EADFCF] bg-[#FFFDFC] pl-3 pr-8.5 py-1.5 text-xs text-[#5B5F4A] outline-none focus:border-[#2F6F5E] cursor-pointer font-semibold"
+          >
+            <option value="">All Integration Types</option>
+            <option value="greenhouse">Greenhouse API</option>
+            <option value="lever">Lever API</option>
+            <option value="ashby">Ashby API</option>
+            <option value="playwright">Playwright Custom Crawler</option>
+          </select>
+          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#5B5F4A] pointer-events-none" />
+        </div>
       </div>
 
       {/* Grid Table List */}
@@ -405,26 +419,32 @@ export default function CompaniesPage() {
               {/* ATS Platform */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">ATS Provider Type</label>
-                <select
-                  value={ats}
-                  onChange={(e) => setAts(e.target.value)}
-                  className="w-full rounded-xl border border-[#EADFCF] bg-[#FFFDFC] px-3 py-2 text-xs text-[#1E293B] outline-none focus:border-[#2F6F5E] transition cursor-pointer font-semibold text-[#5B5F4A]"
-                >
-                  <option value="greenhouse">Greenhouse API</option>
-                  <option value="lever">Lever API</option>
-                  <option value="ashby">Ashby API</option>
-                  <option value="playwright">Playwright Custom Crawler</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={ats}
+                    onChange={(e) => setAts(e.target.value)}
+                    className="w-full appearance-none rounded-xl border border-[#EADFCF] bg-[#FFFDFC] pl-3 pr-8.5 py-2 text-xs text-[#1E293B] outline-none focus:border-[#2F6F5E] transition cursor-pointer font-semibold text-[#5B5F4A]"
+                  >
+                    <option value="greenhouse">Greenhouse API</option>
+                    <option value="lever">Lever API</option>
+                    <option value="ashby">Ashby API</option>
+                    <option value="playwright">Playwright Custom Crawler</option>
+                    <option value="all">All (Auto-Detect)</option>
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#5B5F4A] pointer-events-none" />
+                </div>
               </div>
 
               {/* ATS Token */}
               {ats !== "playwright" && (
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">ATS Token Slug</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">
+                    ATS Token Slug{ats === "all" && <span className="font-normal text-[#5B5F4A]/60 normal-case tracking-normal"> (optional for Auto-Detect)</span>}
+                  </label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. cloudflare"
+                    required={ats !== "all"}
+                    placeholder={ats === "all" ? "e.g. cloudflare (optional if URL provided)" : "e.g. cloudflare"}
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     className="w-full rounded-xl border border-[#EADFCF] bg-[#FFFDFC] px-3 py-2 text-xs text-[#1E293B] outline-none focus:border-[#2F6F5E] focus:ring-2 focus:ring-[#2F6F5E]/10 transition"
@@ -507,25 +527,32 @@ export default function CompaniesPage() {
               {/* ATS Platform */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">ATS Provider Type</label>
-                <select
-                  value={ats}
-                  onChange={(e) => setAts(e.target.value)}
-                  className="w-full rounded-xl border border-[#EADFCF] bg-[#FFFDFC] px-3 py-2 text-xs text-[#1E293B] outline-none focus:border-[#2F6F5E] transition cursor-pointer font-semibold text-[#5B5F4A]"
-                >
-                  <option value="greenhouse">Greenhouse API</option>
-                  <option value="lever">Lever API</option>
-                  <option value="ashby">Ashby API</option>
-                  <option value="playwright">Playwright Custom Scraper</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={ats}
+                    onChange={(e) => setAts(e.target.value)}
+                    className="w-full appearance-none rounded-xl border border-[#EADFCF] bg-[#FFFDFC] pl-3 pr-8.5 py-2 text-xs text-[#1E293B] outline-none focus:border-[#2F6F5E] transition cursor-pointer font-semibold text-[#5B5F4A]"
+                  >
+                    <option value="greenhouse">Greenhouse API</option>
+                    <option value="lever">Lever API</option>
+                    <option value="ashby">Ashby API</option>
+                    <option value="playwright">Playwright Custom Scraper</option>
+                    <option value="all">All (Auto-Detect)</option>
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#5B5F4A] pointer-events-none" />
+                </div>
               </div>
 
               {/* ATS Token */}
               {ats !== "playwright" && (
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">ATS Token Slug</label>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">
+                    ATS Token Slug{ats === "all" && <span className="font-normal text-[#5B5F4A]/60 normal-case tracking-normal"> (optional for Auto-Detect)</span>}
+                  </label>
                   <input
                     type="text"
-                    required
+                    required={ats !== "all"}
+                    placeholder={ats === "all" ? "e.g. cloudflare (optional if URL provided)" : "e.g. cloudflare"}
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     className="w-full rounded-xl border border-[#EADFCF] bg-[#FFFDFC] px-3 py-2 text-xs text-[#1E293B] outline-none focus:border-[#2F6F5E] focus:ring-2 focus:ring-[#2F6F5E]/10 transition"

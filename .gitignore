@@ -10,3 +10,4 @@ node_modules/
 frontend/dist/
 ai/cyberjobs.db 
 ai/data/history/ 
+cyberjobs.db 

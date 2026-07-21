@@ -96,7 +96,6 @@ export default function Sidebar() {
           <ShieldCheck strokeWidth={2} style={{ width: "1rem", height: "1rem", color: "#fff" }} />
         </div>
         <div>
-          <div className="sidebar-logo-text">CyberTalent</div>
           <div className="sidebar-logo-sub">ATS Platform</div>
         </div>
       </div>
@@ -207,7 +206,7 @@ export default function Sidebar() {
           >
             <ShieldCheck strokeWidth={2} style={{ width: "0.875rem", height: "0.875rem", color: "#fff" }} />
           </div>
-          <span style={{ fontSize: "0.8125rem" }}>CyberTalent ATS</span>
+          <span className="sidebar-logo-sub" style={{ fontSize: "0.75rem" }}>ATS Platform</span>
         </Link>
         <button
           onClick={() => setIsOpen(!isOpen)}

@@ -224,3 +224,67 @@ def run_pipeline() -> bool:
         
     logger.info("Pipeline executed successfully.")
     return True
+
+def scrape_try_all(company_name: str, token: str, careers_url: str) -> tuple:
+    """
+    Tries each available scraper (Greenhouse, Lever, Ashby) in sequence using the provided token,
+    and returns the first one that successfully returns valid jobs. Falls back to Playwright if all fail.
+    Returns:
+        (successful_ats_type, jobs_list)
+    """
+    # 1. Greenhouse
+    if token:
+        try:
+            logger.info(f"Orchestration try-all: attempting Greenhouse for {company_name} using token {token}")
+            scraper = GreenhouseScraper(company_name, token, careers_url)
+            jobs = scraper.scrape()
+            if jobs:
+                return "greenhouse", jobs
+        except Exception as e:
+            logger.warning(f"Orchestration try-all: Greenhouse failed for {company_name}: {e}")
+
+    # 2. Lever
+    if token:
+        try:
+            logger.info(f"Orchestration try-all: attempting Lever for {company_name} using token {token}")
+            scraper = LeverScraper(company_name, token, careers_url)
+            jobs = scraper.scrape()
+            if jobs:
+                return "lever", jobs
+        except Exception as e:
+            logger.warning(f"Orchestration try-all: Lever failed for {company_name}: {e}")
+
+    # 3. Ashby
+    if token:
+        try:
+            logger.info(f"Orchestration try-all: attempting Ashby for {company_name} using token {token}")
+            scraper = AshbyScraper(company_name, token, careers_url)
+            jobs = scraper.scrape()
+            if jobs:
+                return "ashby", jobs
+        except Exception as e:
+            logger.warning(f"Orchestration try-all: Ashby failed for {company_name}: {e}")
+
+    # 4. Playwright fallback
+    if careers_url:
+        try:
+            logger.info(f"Orchestration try-all: attempting Playwright fallback for {company_name} using URL {careers_url}")
+            scraper = PlaywrightScraper(company_name, token, careers_url)
+            jobs = scraper.scrape()
+            if jobs:
+                return "playwright", jobs
+            
+            # If Playwright runs but returns no cyber jobs, check if URL is reachable (HTTP 200)
+            # as general reachability counts as a successful setup for custom sites.
+            import requests
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            resp = requests.get(careers_url, headers=headers, timeout=10, allow_redirects=True)
+            if resp.status_code == 200:
+                logger.info(f"Orchestration try-all: Playwright URL is reachable, but no cyber jobs found today. Saving as playwright.")
+                return "playwright", []
+        except Exception as e:
+            logger.warning(f"Orchestration try-all: Playwright failed for {company_name}: {e}")
+
+    return None, []

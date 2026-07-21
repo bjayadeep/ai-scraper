@@ -3,43 +3,37 @@
 
 /* ─── Design Tokens ──────────────────────────────────────────── */
 :root {
-  /* Brand Palette — warm amber × teal */
-  --color-brand: #B8722A;
-  /* primary amber */
-  --color-brand-hover: #9A5D1E;
-  --color-brand-light: #FFF3E0;
-  --color-brand-ring: rgba(184, 114, 42, 0.18);
+  /* Brand Palette — Refined Blue (Linear/Stripe-style SaaS blue) */
+  --color-brand: #2563EB;
+  --color-brand-hover: #1D4ED8;
+  --color-brand-light: #EFF6FF;
+  --color-brand-ring: rgba(37, 99, 235, 0.16);
 
-  --color-accent: #2D6A5A;
-  /* forest teal */
-  --color-accent-hover: #225248;
-  --color-accent-light: #EAF3F0;
-  --color-accent-ring: rgba(45, 106, 90, 0.15);
+  /* Secondary Accent Palette — Deep Slate/Navy for hierarchy & depth */
+  --color-accent: #0F172A;
+  --color-accent-hover: #1E293B;
+  --color-accent-light: #F1F5F9;
+  --color-accent-ring: rgba(15, 23, 42, 0.12);
 
-  /* Surface Palette */
-  --surface-base: #FEFCF7;
-  /* warm white canvas */
-  --surface-card: #FFFDF9;
-  /* card white */
-  --surface-subtle: #FAF6EE;
-  /* muted row / sidebar bg */
-  --surface-muted: #F4EDE0;
-  /* secondary bg blocks */
-  --surface-hover: #F7F0E4;
-  /* hover tint */
+  /* Surface Palette — White & Whitesmoke grays */
+  --surface-base: #F8FAFC;
+  --surface-card: #FFFFFF;
+  --surface-subtle: #F1F5F9;
+  --surface-muted: #E2E8F0;
+  --surface-hover: #F8FAFC;
 
-  /* Borders */
-  --border-base: #E8DDD0;
-  --border-subtle: #F0E8DC;
-  --border-strong: #D4C5B4;
+  /* Borders — Cool Slate Grays */
+  --border-base: #E2E8F0;
+  --border-subtle: #F1F5F9;
+  --border-strong: #CBD5E1;
 
-  /* Text */
-  --text-primary: #1C1917;
-  --text-secondary: #57534E;
-  --text-tertiary: #78716C;
-  --text-disabled: #A8A29E;
+  /* Text — Slate Grays & Near-Black */
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-tertiary: #64748B;
+  --text-disabled: #94A3B8;
 
-  /* Status Colours */
+  /* Status Colours — Semantic */
   --green-bg: #ECFDF5;
   --green-text: #065F46;
   --green-border: #A7F3D0;
@@ -59,12 +53,12 @@
   --teal-text: #166534;
   --teal-border: #BBF7D0;
 
-  /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.04);
-  --shadow-sm: 0 2px 6px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04);
-  --shadow-md: 0 4px 16px rgba(28, 25, 23, 0.08), 0 2px 4px rgba(28, 25, 23, 0.04);
-  --shadow-lg: 0 12px 32px rgba(28, 25, 23, 0.12), 0 4px 8px rgba(28, 25, 23, 0.06);
-  --shadow-xl: 0 24px 48px rgba(28, 25, 23, 0.15), 0 8px 16px rgba(28, 25, 23, 0.08);
+  /* Shadows — Subtle refined depth */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.03);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.08), 0 4px 8px rgba(15, 23, 42, 0.04);
+  --shadow-xl: 0 24px 48px rgba(15, 23, 42, 0.10), 0 8px 16px rgba(15, 23, 42, 0.05);
 
   /* Radius */
   --radius-sm: 8px;
@@ -546,7 +540,7 @@ body {
 .sidebar-logo-icon {
   width: 1.75rem;
   height: 1.75rem;
-  background: var(--color-accent);
+  background: var(--color-brand);
   border-radius: 7px;
   display: flex;
   align-items: center;
@@ -563,11 +557,11 @@ body {
 }
 
 .sidebar-logo-sub {
-  font-size: 0.5625rem;
-  font-weight: 600;
+  font-size: 0.725rem;
+  font-weight: 750;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-primary);
 }
 
 .sidebar-section-label {
@@ -605,7 +599,7 @@ body {
 
 .nav-item.active {
   background: var(--surface-card);
-  color: var(--color-accent);
+  color: var(--color-brand);
   border-color: var(--border-base);
   font-weight: 600;
   box-shadow: var(--shadow-xs);
@@ -618,7 +612,7 @@ body {
   top: 25%;
   height: 50%;
   width: 2.5px;
-  background: var(--color-accent);
+  background: var(--color-brand);
   border-radius: 0 2px 2px 0;
 }
 
@@ -903,6 +897,72 @@ body {
 }
 
 .focus-ring:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-brand);
   outline-offset: 2px;
+}
+
+/* ─── Legacy Tailwind Arbitrary Hex Overrides ────────────────── */
+.bg-\[\#FFFDF8\],
+.bg-\[\#FFFDF9\],
+.bg-\[\#FFFDFC\],
+.bg-\[\#FEFCF7\],
+.bg-\[\#FFF9F0\] {
+  background-color: var(--surface-card) !important;
+}
+
+.bg-\[\#FFF9F0\]\/60,
+.hover\:bg-\[\#FFF9F0\]\/60:hover {
+  background-color: var(--surface-hover) !important;
+}
+
+.bg-\[\#FAF6EE\],
+.bg-\[\#F4EDE0\],
+.bg-\[\#EADFCF\] {
+  background-color: var(--surface-subtle) !important;
+}
+
+.border-\[\#EADFCF\],
+.border-\[\#E8DDD0\],
+.border-\[\#EADFCF\]\/60,
+.divide-\[\#EADFCF\]\/60 > * + * {
+  border-color: var(--border-base) !important;
+}
+
+.text-\[\#1E293B\],
+.text-\[\#1C1917\] {
+  color: var(--text-primary) !important;
+}
+
+.text-\[\#5B5F4A\],
+.text-\[\#5B5F4A\]\/75,
+.text-\[\#5B5F4A\]\/70,
+.text-\[\#5B5F4A\]\/80,
+.text-\[\#57534E\],
+.text-\[\#78716C\] {
+  color: var(--text-secondary) !important;
+}
+
+.bg-\[\#C67C2E\] {
+  background-color: var(--color-brand) !important;
+}
+
+.hover\:bg-\[\#A9621C\]:hover {
+  background-color: var(--color-brand-hover) !important;
+}
+
+.text-\[\#2F6F5E\],
+.bg-\[\#2F6F5E\] {
+  color: var(--color-brand) !important;
+}
+
+.bg-\[\#2F6F5E\] {
+  background-color: var(--color-brand) !important;
+}
+
+.focus\:border-\[\#2F6F5E\]:focus {
+  border-color: var(--color-brand) !important;
+}
+
+.focus\:ring-\[\#2F6F5E\]\/10:focus {
+  --tw-ring-color: var(--color-brand-ring) !important;
 }

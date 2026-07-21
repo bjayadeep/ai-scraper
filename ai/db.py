@@ -83,6 +83,12 @@ class ActivityLog(Base):
     
     user = relationship("User", back_populates="logs")
 
+class Setting(Base):
+    __tablename__ = "settings"
+    
+    key = Column(String(255), primary_key=True, index=True)
+    value = Column(Text, nullable=True)
+
 # Database dependency
 def get_db():
     db = SessionLocal()
