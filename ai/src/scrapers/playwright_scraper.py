@@ -24,7 +24,9 @@ class PlaywrightScraper(BaseScraper):
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 )
                 page = context.new_page()
-                page.goto(self.careers_url, wait_until="networkidle", timeout=30000)
+                # "networkidle" times out on sites with persistent background requests
+                # (analytics, chat widgets, polling); DOM being ready is enough to read links.
+                page.goto(self.careers_url, wait_until="domcontentloaded", timeout=30000)
                 
                 # Let's search for all links on the page and filter them
                 links = page.query_selector_all("a")
@@ -68,5 +70,7 @@ class PlaywrightScraper(BaseScraper):
                 logger.info(f"Successfully scraped {len(jobs_list)} potential jobs for {self.company_name} using Playwright.")
         except Exception as e:
             logger.error(f"Error scraping with Playwright for {self.company_name}: {str(e)}", exc_info=True)
-            
+            # Re-raise so callers can distinguish "scrape failed" from "genuinely 0 jobs found".
+            raise
+
         return jobs_list
