@@ -13,6 +13,11 @@ if not DATABASE_URL:
     # Use SQLite fallback if DATABASE_URL is not set, but notify user
     DATABASE_URL = "sqlite:///./cyberjobs.db"
 
+# Neon/PostgreSQL connection strings often use the postgres:// prefix.
+# SQLAlchemy requires postgresql:// instead of postgres://, so we replace it if present.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # Setup SQLAlchemy engine and session
 # For SQLite, we need to allow multithreading, but PostgreSQL doesn't need it
 if DATABASE_URL.startswith("sqlite"):
