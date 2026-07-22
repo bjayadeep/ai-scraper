@@ -60,19 +60,41 @@ def run_pipeline() -> bool:
     except Exception as e:
         logger.warning(f"Company auto-discovery failed (non-fatal): {str(e)}")
 
-    # 1. Load Company Database
-    if not settings.COMPANIES_JSON_PATH.exists():
-        logger.error(f"Companies JSON file not found at {settings.COMPANIES_JSON_PATH}")
-        return False
-
-    with open(settings.COMPANIES_JSON_PATH, "r") as f:
-        all_companies = json.load(f)
+    # 1. Load Company Database from Database (PostgreSQL)
+    try:
+        import sys
+        from pathlib import Path
+        ai_dir = str(Path(__file__).resolve().parent.parent)
+        if ai_dir not in sys.path:
+            sys.path.append(ai_dir)
+        from db import SessionLocal, Company
+        db = SessionLocal()
+        db_companies = db.query(Company).all()
+        all_companies = [
+            {
+                "name": c.name,
+                "ats": c.ats,
+                "token": c.token,
+                "careers_url": c.careers_url
+            }
+            for c in db_companies
+        ]
+        db.close()
+        logger.info(f"Loaded {len(all_companies)} companies from PostgreSQL database.")
+    except Exception as db_err:
+        logger.warning(f"Failed to load companies from database: {str(db_err)}. Falling back to companies.json.")
+        if not settings.COMPANIES_JSON_PATH.exists():
+            logger.error(f"Companies JSON file not found at {settings.COMPANIES_JSON_PATH}")
+            return False
+        with open(settings.COMPANIES_JSON_PATH, "r") as f:
+            all_companies = json.load(f)
 
     companies = all_companies
     logger.info(f"Scraping all {len(companies)} companies.")
     
-    # 2. Load Excel History for Deduplication (Last 90 Days)
-    seen_titles_companies, seen_links = load_history_signatures()
+    # 2. Load Excel History for Deduplication (Last 90 Days) & Company Cooldown (Last 14 Days = Alternate Weeks)
+    seen_titles_companies, seen_links, recent_companies = load_history_signatures(settings.COMPANY_COOLDOWN_DAYS)
+    logger.info(f"Alternate Week Filter: {len(recent_companies)} companies featured in email reports within the last {settings.COMPANY_COOLDOWN_DAYS} days will be skipped.")
     
     # 3. Scrape Jobs from all configured companies
     raw_jobs: List[Dict[str, Any]] = []
@@ -101,10 +123,17 @@ def run_pipeline() -> bool:
             
     logger.info(f"Collected a total of {len(raw_jobs)} raw jobs from all scrapers.")
     
-    # 4. Regex Filter: Deduplicate + USA + CyberSec + Experience
+    # 4. Regex Filter: Company Cooldown + Deduplicate + USA + CyberSec + Experience
     regex_passed: List[Dict[str, Any]] = []
 
     for job in raw_jobs:
+        comp_name_lower = job.get("company", "").strip().lower()
+
+        # Check 0: Company Cooldown (Alternate Weeks / 14 Days)
+        if comp_name_lower in recent_companies:
+            logger.debug(f"Skipping {job.get('company')}: featured in email digest within last {settings.COMPANY_COOLDOWN_DAYS} days.")
+            continue
+
         # Check 1: Duplicate check (history)
         if is_duplicate_job(job, seen_titles_companies, seen_links):
             continue
@@ -203,3 +232,67 @@ def run_pipeline() -> bool:
         
     logger.info("Pipeline executed successfully.")
     return True
+
+def scrape_try_all(company_name: str, token: str, careers_url: str) -> tuple:
+    """
+    Tries each available scraper (Greenhouse, Lever, Ashby) in sequence using the provided token,
+    and returns the first one that successfully returns valid jobs. Falls back to Playwright if all fail.
+    Returns:
+        (successful_ats_type, jobs_list)
+    """
+    # 1. Greenhouse
+    if token:
+        try:
+            logger.info(f"Orchestration try-all: attempting Greenhouse for {company_name} using token {token}")
+            scraper = GreenhouseScraper(company_name, token, careers_url)
+            jobs = scraper.scrape()
+            if jobs:
+                return "greenhouse", jobs
+        except Exception as e:
+            logger.warning(f"Orchestration try-all: Greenhouse failed for {company_name}: {e}")
+
+    # 2. Lever
+    if token:
+        try:
+            logger.info(f"Orchestration try-all: attempting Lever for {company_name} using token {token}")
+            scraper = LeverScraper(company_name, token, careers_url)
+            jobs = scraper.scrape()
+            if jobs:
+                return "lever", jobs
+        except Exception as e:
+            logger.warning(f"Orchestration try-all: Lever failed for {company_name}: {e}")
+
+    # 3. Ashby
+    if token:
+        try:
+            logger.info(f"Orchestration try-all: attempting Ashby for {company_name} using token {token}")
+            scraper = AshbyScraper(company_name, token, careers_url)
+            jobs = scraper.scrape()
+            if jobs:
+                return "ashby", jobs
+        except Exception as e:
+            logger.warning(f"Orchestration try-all: Ashby failed for {company_name}: {e}")
+
+    # 4. Playwright fallback
+    if careers_url:
+        try:
+            logger.info(f"Orchestration try-all: attempting Playwright fallback for {company_name} using URL {careers_url}")
+            scraper = PlaywrightScraper(company_name, token, careers_url)
+            jobs = scraper.scrape()
+            if jobs:
+                return "playwright", jobs
+            
+            # If Playwright runs but returns no cyber jobs, check if URL is reachable (HTTP 200)
+            # as general reachability counts as a successful setup for custom sites.
+            import requests
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            resp = requests.get(careers_url, headers=headers, timeout=10, allow_redirects=True)
+            if resp.status_code == 200:
+                logger.info(f"Orchestration try-all: Playwright URL is reachable, but no cyber jobs found today. Saving as playwright.")
+                return "playwright", []
+        except Exception as e:
+            logger.warning(f"Orchestration try-all: Playwright failed for {company_name}: {e}")
+
+    return None, []
