@@ -23,24 +23,27 @@ def parse_date_from_filename(filename: str) -> datetime.date:
             pass
     return None
 
-def load_history_signatures() -> Tuple[Set[str], Set[str]]:
+def load_history_signatures(company_cooldown_days: int = 14) -> Tuple[Set[str], Set[str], Set[str]]:
     """
     Scans the history directory for Excel sheets generated in the last 90 days.
     Loads job listings and extracts signatures to prevent duplicates.
+    Also tracks companies featured in the last `company_cooldown_days` (default 14 days for alternate weeks).
     
     Returns:
-        Tuple[Set[str], Set[str]]: (set of lowercase_title_company, set of apply_links)
+        Tuple[Set[str], Set[str], Set[str]]: (set of lowercase_title_company, set of apply_links, set of recent_company_names)
     """
     seen_titles_companies = set()
     seen_links = set()
+    recent_companies = set()
     
     history_dir = settings.HISTORY_DIR
     if not history_dir.exists():
         logger.info(f"History directory {history_dir} does not exist yet. Creating it.")
         history_dir.mkdir(parents=True, exist_ok=True)
-        return seen_titles_companies, seen_links
+        return seen_titles_companies, seen_links, recent_companies
         
-    cutoff_date = datetime.date.today() - datetime.timedelta(days=7)
+    cutoff_date_90d = datetime.date.today() - datetime.timedelta(days=90)
+    cooldown_cutoff_date = datetime.date.today() - datetime.timedelta(days=company_cooldown_days)
     excel_files = list(history_dir.glob("CyberJobs_*.xlsx"))
     
     logger.info(f"Scanning {len(excel_files)} Excel history files in {history_dir}")
@@ -55,7 +58,7 @@ def load_history_signatures() -> Tuple[Set[str], Set[str]]:
             file_date = datetime.date.fromtimestamp(mtime)
             
         # Only process files within the last 90 days
-        if file_date >= cutoff_date:
+        if file_date >= cutoff_date_90d:
             try:
                 # Read with header=3 because Excel has a 3-row title block
                 # before the actual column headers (row 4 = index 3)
@@ -74,6 +77,8 @@ def load_history_signatures() -> Tuple[Set[str], Set[str]]:
                 title_col = "job title" if "job title" in df.columns else ("title" if "title" in df.columns else None)
                 link_col = "apply link" if "apply link" in df.columns else ("link" if "link" in df.columns else None)
                 
+                is_within_cooldown = file_date >= cooldown_cutoff_date
+
                 for _, row in df.iterrows():
                     # 1. Deduplicate by Apply Link
                     if link_col:
@@ -81,20 +86,25 @@ def load_history_signatures() -> Tuple[Set[str], Set[str]]:
                         if link_val and link_val != "nan":
                             seen_links.add(link_val.lower())
                             
-                    # 2. Deduplicate by Title + Company
-                    if company_col and title_col:
+                    # 2. Deduplicate by Title + Company & Track Recent Companies
+                    if company_col:
                         comp_val = str(row[company_col]).strip().lower()
-                        title_val = str(row[title_col]).strip().lower()
-                        if comp_val and title_val and comp_val != "nan" and title_val != "nan":
-                            signature = f"{comp_val}::{title_val}"
-                            seen_titles_companies.add(signature)
-                            
+                        if comp_val and comp_val != "nan":
+                            if is_within_cooldown:
+                                recent_companies.add(comp_val)
+                                
+                            if title_col:
+                                title_val = str(row[title_col]).strip().lower()
+                                if title_val and title_val != "nan":
+                                    signature = f"{comp_val}::{title_val}"
+                                    seen_titles_companies.add(signature)
+                                    
                 logger.info(f"Successfully loaded history from {filename}")
             except Exception as e:
                 logger.error(f"Failed to read history from {filename}: {str(e)}")
                 
-    logger.info(f"Loaded {len(seen_links)} links and {len(seen_titles_companies)} title-company pairs from last 90 days.")
-    return seen_titles_companies, seen_links
+    logger.info(f"Loaded {len(seen_links)} links, {len(seen_titles_companies)} title-company pairs (last 90d), and {len(recent_companies)} companies featured in the last {company_cooldown_days} days.")
+    return seen_titles_companies, seen_links, recent_companies
 
 def is_duplicate_job(job: dict, seen_titles_companies: Set[str], seen_links: Set[str]) -> bool:
     """

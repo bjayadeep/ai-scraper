@@ -110,6 +110,16 @@ class SettingsModule:
         return int(os.getenv("MAX_EXPERIENCE", "6"))
 
     @property
+    def COMPANY_COOLDOWN_DAYS(self) -> int:
+        val = self._get_db_value("company_cooldown_days")
+        if val is not None:
+            try:
+                return int(val)
+            except ValueError:
+                pass
+        return int(os.getenv("COMPANY_COOLDOWN_DAYS", "14"))
+
+    @property
     def CLAUDE_API_KEY(self) -> str:
         val = self._get_db_value("claude_api_key")
         if val is not None:

@@ -92,8 +92,9 @@ def run_pipeline() -> bool:
     companies = all_companies
     logger.info(f"Scraping all {len(companies)} companies.")
     
-    # 2. Load Excel History for Deduplication (Last 90 Days)
-    seen_titles_companies, seen_links = load_history_signatures()
+    # 2. Load Excel History for Deduplication (Last 90 Days) & Company Cooldown (Last 14 Days = Alternate Weeks)
+    seen_titles_companies, seen_links, recent_companies = load_history_signatures(settings.COMPANY_COOLDOWN_DAYS)
+    logger.info(f"Alternate Week Filter: {len(recent_companies)} companies featured in email reports within the last {settings.COMPANY_COOLDOWN_DAYS} days will be skipped.")
     
     # 3. Scrape Jobs from all configured companies
     raw_jobs: List[Dict[str, Any]] = []
@@ -122,10 +123,17 @@ def run_pipeline() -> bool:
             
     logger.info(f"Collected a total of {len(raw_jobs)} raw jobs from all scrapers.")
     
-    # 4. Regex Filter: Deduplicate + USA + CyberSec + Experience
+    # 4. Regex Filter: Company Cooldown + Deduplicate + USA + CyberSec + Experience
     regex_passed: List[Dict[str, Any]] = []
 
     for job in raw_jobs:
+        comp_name_lower = job.get("company", "").strip().lower()
+
+        # Check 0: Company Cooldown (Alternate Weeks / 14 Days)
+        if comp_name_lower in recent_companies:
+            logger.debug(f"Skipping {job.get('company')}: featured in email digest within last {settings.COMPANY_COOLDOWN_DAYS} days.")
+            continue
+
         # Check 1: Duplicate check (history)
         if is_duplicate_job(job, seen_titles_companies, seen_links):
             continue
