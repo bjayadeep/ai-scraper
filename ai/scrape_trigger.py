@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parent))
 
 from db import SessionLocal, Company, Job, ActivityLog
 from config import settings
-from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, PlaywrightScraper
+from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, PlaywrightScraper, RequestsScraper
 from src.filters import filter_job, verify_job_with_ai
 
 logger = logging.getLogger("scrape_trigger")
@@ -39,8 +39,16 @@ def scrape_single_company(company_id: int, user_id: int = None) -> Dict[str, Any
         scraper = PlaywrightScraper(company.name, company.token, company.careers_url)
         
     try:
-        # 2. Run scraping
-        raw_jobs = scraper.scrape()
+        # 2. Run scraping. For custom sites, try a cheap plain-HTTP fetch first
+        # (no browser, low memory) and only launch Playwright if that finds nothing —
+        # many careers pages are server-rendered and don't need a real browser at all.
+        if company.ats not in ("greenhouse", "lever", "ashby"):
+            raw_jobs = RequestsScraper(company.name, company.token, company.careers_url).scrape()
+            if not raw_jobs:
+                logger.info(f"Plain-HTTP fetch found nothing for {company.name}; falling back to Playwright.")
+                raw_jobs = scraper.scrape()
+        else:
+            raw_jobs = scraper.scrape()
         logger.info(f"Scraped {len(raw_jobs)} raw jobs for {company.name}")
         
         new_jobs_added = 0

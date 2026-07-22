@@ -2,7 +2,7 @@ import json
 import logging
 from typing import List, Dict, Any
 from config import settings
-from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, PlaywrightScraper
+from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, PlaywrightScraper, RequestsScraper
 from src.filters import filter_job, verify_job_with_ai
 from src.storage import load_history_signatures, is_duplicate_job
 from src.reporting import generate_styled_excel, send_email_with_report
@@ -113,9 +113,15 @@ def run_pipeline() -> bool:
             scraper = AshbyScraper(name, token, careers_url)
         else:
             scraper = PlaywrightScraper(name, token, careers_url)
-            
+
         try:
-            company_jobs = scraper.scrape()
+            if ats_type not in ("greenhouse", "lever", "ashby"):
+                # Try a cheap plain-HTTP fetch before paying for a full browser launch.
+                company_jobs = RequestsScraper(name, token, careers_url).scrape()
+                if not company_jobs:
+                    company_jobs = scraper.scrape()
+            else:
+                company_jobs = scraper.scrape()
             raw_jobs.extend(company_jobs)
         except Exception as e:
             logger.error(f"Failed to run scraper for {name}: {str(e)}", exc_info=True)
