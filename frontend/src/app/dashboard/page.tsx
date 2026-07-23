@@ -14,12 +14,46 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 
+type TrendPoint = {
+  date: string;
+  jobs: number;
+};
+
+type ActivityLog = {
+  id: number;
+  action: string;
+  details?: string | null;
+  user_email: string;
+  created_at: string;
+};
+
+type DashboardStats = {
+  total_companies: number;
+  total_jobs: number;
+  jobs_today: number;
+  ats_stats: Record<string, number>;
+  recent_activity: ActivityLog[];
+  trends: TrendPoint[];
+};
+
+const EMPTY_STATS: DashboardStats = {
+  total_companies: 0,
+  total_jobs: 0,
+  jobs_today: 0,
+  ats_stats: {},
+  recent_activity: [],
+  trends: [],
+};
+
 export default function DashboardOverview() {
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<DashboardStats>({
     queryKey: ["dashboardStats"],
     queryFn: async () => {
       const response = await api.get("/dashboard/stats");
-      return response.data;
+      if (!response.data || typeof response.data !== "object") {
+        throw new Error("Dashboard stats response was empty");
+      }
+      return { ...EMPTY_STATS, ...response.data };
     },
     refetchInterval: 45000,
   });
@@ -73,14 +107,15 @@ export default function DashboardOverview() {
   }
 
   // Chart configuration
-  const trends = data?.trends || [];
+  const stats = data ?? EMPTY_STATS;
+  const trends = stats.trends;
   const chartHeight = 110;
   const chartWidth = 500;
-  const maxVal = Math.max(...trends.map((t: any) => t.jobs), 8);
+  const maxVal = Math.max(...trends.map((trend) => trend.jobs), 8);
   
-  const points = trends.map((t: any, idx: number) => {
-    const x = (idx / (trends.length - 1)) * chartWidth;
-    const y = chartHeight - (t.jobs / maxVal) * chartHeight;
+  const points = trends.map((trend, idx) => {
+    const x = trends.length > 1 ? (idx / (trends.length - 1)) * chartWidth : chartWidth / 2;
+    const y = chartHeight - (trend.jobs / maxVal) * chartHeight;
     return `${x},${y}`;
   }).join(" ");
 
@@ -113,7 +148,7 @@ export default function DashboardOverview() {
             <Building2 className="h-4.5 w-4.5 text-[#2F6F5E]" />
           </div>
           <div className="mt-2.5">
-            <span className="text-2xl font-bold text-[#1E293B] tracking-tight">{data.total_companies}</span>
+            <span className="text-2xl font-bold text-[#1E293B] tracking-tight">{stats.total_companies}</span>
             <p className="text-[9px] text-[#5B5F4A] mt-0.5">PostgreSQL targets</p>
           </div>
         </div>
@@ -125,7 +160,7 @@ export default function DashboardOverview() {
             <Briefcase className="h-4.5 w-4.5 text-[#2F6F5E]" />
           </div>
           <div className="mt-2.5">
-            <span className="text-2xl font-bold text-[#1E293B] tracking-tight">{data.total_jobs}</span>
+            <span className="text-2xl font-bold text-[#1E293B] tracking-tight">{stats.total_jobs}</span>
             <p className="text-[9px] text-[#5B5F4A] mt-0.5">Scraped database leads</p>
           </div>
         </div>
@@ -137,7 +172,7 @@ export default function DashboardOverview() {
             <Sparkles className="h-4.5 w-4.5 text-[#2F6F5E]" />
           </div>
           <div className="mt-2.5">
-            <span className="text-2xl font-bold text-[#1E293B] tracking-tight">{data.jobs_today}</span>
+            <span className="text-2xl font-bold text-[#1E293B] tracking-tight">{stats.jobs_today}</span>
             <p className="text-[9px] text-[#5B5F4A] mt-0.5">Last 24 hours</p>
           </div>
         </div>
@@ -152,17 +187,17 @@ export default function DashboardOverview() {
             <div className="flex items-baseline gap-2.5 text-[9px] font-bold text-[#5B5F4A] mt-1">
               <div>
                 <span>Greenhouse: </span>
-                <span className="text-[#1E293B]">{data.ats_stats?.greenhouse || 0}</span>
+                <span className="text-[#1E293B]">{stats.ats_stats.greenhouse || 0}</span>
               </div>
               <div className="h-2 w-px bg-[#EADFCF]"></div>
               <div>
                 <span>Lever: </span>
-                <span className="text-[#1E293B]">{data.ats_stats?.lever || 0}</span>
+                <span className="text-[#1E293B]">{stats.ats_stats.lever || 0}</span>
               </div>
               <div className="h-2 w-px bg-[#EADFCF]"></div>
               <div>
                 <span>Ashby: </span>
-                <span className="text-[#1E293B]">{data.ats_stats?.ashby || 0}</span>
+                <span className="text-[#1E293B]">{stats.ats_stats.ashby || 0}</span>
               </div>
             </div>
           </div>
@@ -199,9 +234,9 @@ export default function DashboardOverview() {
                   />
 
                   {/* Nodes */}
-                  {trends.map((t: any, idx: number) => {
-                    const x = (idx / (trends.length - 1)) * chartWidth;
-                    const y = chartHeight - (t.jobs / maxVal) * chartHeight;
+                  {trends.map((trend, idx) => {
+                    const x = trends.length > 1 ? (idx / (trends.length - 1)) * chartWidth : chartWidth / 2;
+                    const y = chartHeight - (trend.jobs / maxVal) * chartHeight;
                     return (
                       <g key={idx} className="group cursor-pointer">
                         <circle
@@ -216,7 +251,7 @@ export default function DashboardOverview() {
                           textAnchor="middle"
                           className="hidden group-hover:block fill-[#1E293B] text-[9px] font-bold"
                         >
-                          {t.jobs}
+                          {trend.jobs}
                         </text>
                       </g>
                     );
@@ -225,8 +260,8 @@ export default function DashboardOverview() {
                 
                 {/* Chart Label */}
                 <div className="mt-3 flex justify-between px-1 text-[9px] font-bold text-[#5B5F4A]">
-                  {trends.map((t: any, idx: number) => (
-                    <span key={idx}>{t.date}</span>
+                  {trends.map((trend, idx) => (
+                    <span key={idx}>{trend.date}</span>
                   ))}
                 </div>
               </div>
@@ -247,8 +282,8 @@ export default function DashboardOverview() {
           </div>
 
           <div className="mt-4 flex-1 space-y-3">
-            {data.recent_activity?.length > 0 ? (
-              data.recent_activity.map((log: any) => (
+            {stats.recent_activity.length > 0 ? (
+              stats.recent_activity.map((log) => (
                 <div key={log.id} className="flex items-start gap-2 border-b border-[#FFF9F0] pb-2.5 last:border-0 last:pb-0">
                   <div className="mt-0.5 rounded-lg bg-[#FFF9F0] border border-[#EADFCF] p-1 text-[#5B5F4A] shrink-0">
                     <ChevronRight className="h-2.5 w-2.5" />
