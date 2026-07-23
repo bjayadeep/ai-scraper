@@ -27,6 +27,8 @@ type JobLead = {
   experience_metadata: string | null;
   apply_link: string;
   date_posted: string | null;
+  source_posted_at?: string | null;
+  first_seen_at?: string | null;
 };
 
 type JobsResponse = {
@@ -34,6 +36,19 @@ type JobsResponse = {
   page: number;
   limit: number;
   data: JobLead[];
+  profile?: {
+    slug: string;
+    name: string;
+  };
+};
+
+const JAVA_TITLE = /(^|[^a-z0-9])java([^a-z0-9]|$)/i;
+const DOTNET_TITLE = /(^|\W)(\.net|dotnet|c#)(\W|$)/i;
+
+const titleMatchesProfile = (title: string, profile: string) => {
+  if (profile === "java-developer") return JAVA_TITLE.test(title);
+  if (profile === "dotnet-developer") return DOTNET_TITLE.test(title);
+  return true;
 };
 
 export default function JobsPage() {
@@ -60,7 +75,8 @@ export default function JobsPage() {
   });
 
   const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
-  const jobs = data?.data ?? [];
+  const backendProfileMatches = data?.profile?.slug === profile;
+  const jobs = (data?.data ?? []).filter((job) => titleMatchesProfile(job.title, profile));
   const selectedProfile = JOB_PROFILES.find((item) => item.slug === profile)!;
 
   const formatDate = (dateStr: string | null | undefined) => {
@@ -114,6 +130,12 @@ export default function JobsPage() {
           </button>
         ))}
       </div>
+
+      {data && !backendProfileMatches && profile !== "cybersecurity" && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+          The connected backend has not been upgraded for profile-aware results yet. Non-{selectedProfile.name} jobs are hidden until the backend migration and deployment complete.
+        </div>
+      )}
 
       {/* Filter toolbar */}
       <div className="flex flex-col gap-4 sm:flex-row items-center justify-between border border-[#EADFCF] bg-[#FFFDFC] p-4 rounded-xl shadow-xs">
