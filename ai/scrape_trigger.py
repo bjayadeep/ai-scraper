@@ -40,10 +40,15 @@ def scrape_single_company(company_id: int, user_id: int = None) -> Dict[str, Any
         
     try:
         # 2. Run scraping. For custom sites, try a cheap plain-HTTP fetch first
-        # (no browser, low memory) and only launch Playwright if that finds nothing —
-        # many careers pages are server-rendered and don't need a real browser at all.
+        # (no browser, low memory) and only launch Playwright if that finds nothing
+        # or errors out (blocked, redirect loop, bad URL, etc.) — many careers pages
+        # are server-rendered and don't need a real browser at all.
         if company.ats not in ("greenhouse", "lever", "ashby"):
-            raw_jobs = RequestsScraper(company.name, company.token, company.careers_url).scrape()
+            try:
+                raw_jobs = RequestsScraper(company.name, company.token, company.careers_url).scrape()
+            except Exception as req_err:
+                logger.warning(f"Plain-HTTP fetch failed for {company.name} ({req_err}); falling back to Playwright.")
+                raw_jobs = []
             if not raw_jobs:
                 logger.info(f"Plain-HTTP fetch found nothing for {company.name}; falling back to Playwright.")
                 raw_jobs = scraper.scrape()

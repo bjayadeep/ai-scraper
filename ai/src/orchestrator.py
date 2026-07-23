@@ -117,7 +117,12 @@ def run_pipeline() -> bool:
         try:
             if ats_type not in ("greenhouse", "lever", "ashby"):
                 # Try a cheap plain-HTTP fetch before paying for a full browser launch.
-                company_jobs = RequestsScraper(name, token, careers_url).scrape()
+                # If it errors out (blocked, bad URL, etc.) fall back to Playwright too.
+                try:
+                    company_jobs = RequestsScraper(name, token, careers_url).scrape()
+                except Exception as req_err:
+                    logger.warning(f"Plain-HTTP fetch failed for {name} ({req_err}); falling back to Playwright.")
+                    company_jobs = []
                 if not company_jobs:
                     company_jobs = scraper.scrape()
             else:
