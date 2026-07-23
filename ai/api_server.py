@@ -15,11 +15,12 @@ import jwt
 current_dir = Path(__file__).resolve().parent
 sys.path.append(str(current_dir))
 
-from db import SessionLocal, User, Company, Job, ActivityLog, Setting, get_db, hash_password, verify_password, init_db
+from db import SessionLocal, User, Company, Job, JobProfile, JobProfileMatch, ActivityLog, Setting, get_db, hash_password, verify_password, init_db
 from scrape_trigger import scrape_single_company
 from config import settings
 from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, PlaywrightScraper
 from src.orchestrator import scrape_try_all
+from src.profiles import is_job_in_profile_window
 
 # Load environmental variables
 JWT_SECRET = os.getenv("JWT_SECRET", "supersecretjwtkey123!@#")
@@ -29,7 +30,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 # OAuth2 settings
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-app = FastAPI(title="Cyber Security Job Aggregator API", version="1.0.0")
+app = FastAPI(title="Multi-Domain Job Platform API", version="2.0.0")
 
 # Enable CORS for Next.js frontend
 app.add_middleware(
@@ -96,6 +97,10 @@ class JobResponse(BaseModel):
     apply_link: str
     date_posted: Optional[str]
     scraped_at: datetime.datetime
+    source_posted_at: Optional[datetime.datetime]
+    source_updated_at: Optional[datetime.datetime]
+    first_seen_at: datetime.datetime
+    last_seen_at: datetime.datetime
 
     class Config:
         orm_mode = True
@@ -504,29 +509,93 @@ def trigger_scrape(id: int, db: Session = Depends(get_db), current_user: User = 
 
 
 # 4. Jobs Board Endpoints
+@router.get("/job-profiles")
+def get_job_profiles(
+    enabled_only: bool = Query(True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(JobProfile)
+    if enabled_only:
+        query = query.filter(JobProfile.enabled.is_(True))
+    profiles = query.order_by(JobProfile.id).all()
+    return [
+        {
+            "id": profile.id,
+            "slug": profile.slug,
+            "name": profile.name,
+            "description": profile.description,
+            "enabled": profile.enabled,
+            "window_type": profile.window_type,
+            "timezone": profile.timezone,
+        }
+        for profile in profiles
+    ]
+
+
 @router.get("/jobs")
 def get_jobs(
     page: int = Query(1, ge=1),
     limit: int = Query(15, ge=1, le=100),
     search: Optional[str] = Query(None),
     company: Optional[str] = Query(None),
+    profile: str = Query("cybersecurity"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    query = db.query(Job)
+    selected_profile = db.query(JobProfile).filter(JobProfile.slug == profile).first()
+    if selected_profile is None:
+        raise HTTPException(status_code=404, detail=f"Job profile '{profile}' not found")
+
+    query = (
+        db.query(Job)
+        .join(JobProfileMatch, JobProfileMatch.job_id == Job.id)
+        .filter(JobProfileMatch.profile_id == selected_profile.id)
+    )
     if search:
         query = query.filter(Job.title.ilike(f"%{search}%") | Job.location.ilike(f"%{search}%") | Job.company.ilike(f"%{search}%"))
     if company:
         query = query.filter(Job.company == company)
         
-    total = query.count()
-    jobs = query.order_by(Job.date_posted.desc(), Job.scraped_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    matched_jobs = query.order_by(Job.source_posted_at.desc(), Job.first_seen_at.desc()).all()
+    visible_jobs = [
+        job for job in matched_jobs
+        if is_job_in_profile_window(
+            selected_profile, job.source_posted_at, job.first_seen_at
+        )
+    ]
+    total = len(visible_jobs)
+    jobs = visible_jobs[(page - 1) * limit:page * limit]
     
     return {
         "total": total,
         "page": page,
         "limit": limit,
-        "data": jobs
+        "profile": {
+            "slug": selected_profile.slug,
+            "name": selected_profile.name,
+            "window_type": selected_profile.window_type,
+            "timezone": selected_profile.timezone,
+        },
+        "data": [
+            {
+                "id": job.id,
+                "company": job.company,
+                "title": job.title,
+                "location": job.location,
+                "experience_metadata": job.experience_metadata,
+                "apply_link": job.apply_link,
+                "date_posted": job.date_posted,
+                "scraped_at": job.scraped_at,
+                "source_posted_at": job.source_posted_at,
+                "source_updated_at": job.source_updated_at,
+                "first_seen_at": job.first_seen_at,
+                "last_seen_at": job.last_seen_at,
+                "profile_slug": selected_profile.slug,
+                "profile_name": selected_profile.name,
+            }
+            for job in jobs
+        ]
     }
 
 

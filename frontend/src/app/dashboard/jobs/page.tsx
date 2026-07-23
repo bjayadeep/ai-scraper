@@ -13,20 +13,45 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 
+const JOB_PROFILES = [
+  { slug: "cybersecurity", name: "Cybersecurity", window: "Previous 24 hours" },
+  { slug: "java-developer", name: "Java", window: "Today (New York)" },
+  { slug: "dotnet-developer", name: ".NET", window: "Today (New York)" },
+] as const;
+
+type JobLead = {
+  id: number;
+  company: string;
+  title: string;
+  location: string | null;
+  experience_metadata: string | null;
+  apply_link: string;
+  date_posted: string | null;
+};
+
+type JobsResponse = {
+  total: number;
+  page: number;
+  limit: number;
+  data: JobLead[];
+};
+
 export default function JobsPage() {
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [profile, setProfile] = useState<(typeof JOB_PROFILES)[number]["slug"]>("cybersecurity");
 
   // Fetch Jobs Board Query
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["jobs", search, companyFilter, page],
+  const { data, isLoading, refetch, isFetching } = useQuery<JobsResponse>({
+    queryKey: ["jobs", profile, search, companyFilter, page],
     queryFn: async () => {
-      const response = await api.get("/jobs", {
+      const response = await api.get<JobsResponse>("/jobs", {
         params: { 
           page, 
           search: search || undefined, 
           company: companyFilter || undefined, 
+          profile,
           limit: 12 
         },
       });
@@ -35,8 +60,10 @@ export default function JobsPage() {
   });
 
   const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
+  const jobs = data?.data ?? [];
+  const selectedProfile = JOB_PROFILES.find((item) => item.slug === profile)!;
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return "n/a";
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
@@ -54,7 +81,7 @@ export default function JobsPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-[#1E293B]">Aggregated Job Leads</h1>
           <p className="text-xs text-[#5B5F4A]">
-            US-based roles matching 1–6 years of experience
+            {selectedProfile.name} · {selectedProfile.window} · US roles matching 1–6 years of experience
           </p>
         </div>
         <button
@@ -65,6 +92,27 @@ export default function JobsPage() {
           <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
           <span>Refresh leads</span>
         </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2" aria-label="Job profile selector">
+        {JOB_PROFILES.map((item) => (
+          <button
+            key={item.slug}
+            type="button"
+            onClick={() => { setProfile(item.slug); setPage(1); }}
+            aria-pressed={profile === item.slug}
+            className={`rounded-xl border px-4 py-2 text-xs font-bold transition ${
+              profile === item.slug
+                ? "border-[#2F6F5E] bg-[#2F6F5E] text-white shadow-sm"
+                : "border-[#EADFCF] bg-[#FFFDFC] text-[#5B5F4A] hover:border-[#D1C4B2]"
+            }`}
+          >
+            {item.name}
+            <span className={`ml-2 text-[9px] font-medium ${profile === item.slug ? "text-white/75" : "text-[#5B5F4A]/70"}`}>
+              {item.window}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Filter toolbar */}
@@ -99,10 +147,10 @@ export default function JobsPage() {
               <div key={i} className="h-40 rounded-xl bg-[#FFF9F0] border border-[#EADFCF]"></div>
             ))}
           </div>
-        ) : data?.data?.length > 0 ? (
+        ) : jobs.length > 0 ? (
           <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {data.data.map((job: any) => (
+              {jobs.map((job) => (
                 <div key={job.id} className="flex flex-col justify-between rounded-xl border border-[#EADFCF] bg-[#FFFDFC] p-4.5 hover:border-[#D1C4B2] hover:shadow-sm transition duration-150">
                   <div className="space-y-3">
                     <div className="flex items-center">
@@ -159,7 +207,7 @@ export default function JobsPage() {
                   Previous
                 </button>
                 <span className="text-[10px] font-bold text-[#5B5F4A]">
-                  Page {page} of {totalPages} (Total leads: {data.total})
+                  Page {page} of {totalPages} (Total leads: {data?.total ?? 0})
                 </span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

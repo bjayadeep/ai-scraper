@@ -2,47 +2,9 @@ import re
 import logging
 from typing import Dict, Any, Tuple
 from config import settings
+from src.profiles import matches_profile_title
 
 logger = logging.getLogger(__name__)
-
-# Keywords that indicate a Cyber Security role
-SECURITY_KEYWORDS = [
-    r"\bsecurity\b", r"\bcyber\b", r"\bcybersecurity\b", r"\binfosec\b", 
-    r"\bsecops\b", r"\bsoc\b", r"\bpentest\b", r"\bpenetration\b", 
-    r"\bvulnerability\b", r"\biam\b", r"\bgrc\b", r"\bcompliance\b", 
-    r"\bthreat\b", r"\bincident\b", r"\bsiem\b", r"\bcryptography\b"
-]
-
-# Title patterns to exclude (false positives and non-cyber roles)
-EXCLUDE_TITLE_PATTERNS = [
-    r"\bsecurities\b",
-    r"\bphysical security\b",
-    r"\bguard\b",
-    r"\bofficer\b",
-    r"\bloss prevention\b",
-    r"\bfood security\b",
-    r"\bhome security\b",
-    r"\bsales\b",
-    r"\baccount\s+executive\b",
-    r"\bchannel\b",
-    r"\bbrand\b",
-    r"\bmarketing\b",
-    r"\bcounsel\b",
-    r"\battorney\b",
-    r"\blegal\b",
-    r"\brecruiter\b",
-    r"\badministrative\b",
-    r"\bfellowship\b",
-    r"\bskillbridge\b",
-    r"\bvice\s+president\b",
-    r"\barea\s+vice\b",
-    r"\bstaff\b",
-    r"\bprincipal\b",
-    r"\bdirector\b",
-    r"\bhead\s+of\b",
-    r"\bchief\b",
-    r"\bgroup\s+product\b",
-]
 
 # Experience regexes
 # Matches: "3-5 years", "3+ years", "minimum of 2 years", "1 to 6 years", "4 yrs", etc.
@@ -110,22 +72,6 @@ def is_usa_location(location: str, description: str = "") -> bool:
         
     return False
 
-def is_cyber_security_role(title: str) -> bool:
-    """Checks if the job title matches cyber security roles and avoids exclusions."""
-    title_lower = title.lower()
-    
-    # Check for title exclusion patterns first
-    for pattern in EXCLUDE_TITLE_PATTERNS:
-        if re.search(pattern, title_lower):
-            return False
-            
-    # Check for security keywords in title
-    for keyword in SECURITY_KEYWORDS:
-        if re.search(keyword, title_lower):
-            return True
-            
-    return False
-
 def parse_experience(description: str, title: str = "") -> Tuple[bool, str]:
     """
     Parses experience required from the job description.
@@ -138,8 +84,6 @@ def parse_experience(description: str, title: str = "") -> Tuple[bool, str]:
     max_exp_limit = settings.EXPERIENCE_MAX_YEARS
     title_lower = title.lower()
     desc_clean = clean_html(description)
-    desc_lower = desc_clean.lower()
-    
     # First heuristic: Check title for seniority level. 
     # If the title is "Senior ...", "Principal ...", "Lead ...", "Director ...", 
     # it is highly likely to require more than max_exp_limit years of experience.
@@ -198,7 +142,7 @@ def parse_experience(description: str, title: str = "") -> Tuple[bool, str]:
         
     return True, f"Not specified (Assumed {min_exp_limit}-{max_exp_limit} yrs)"
 
-def filter_job(job: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
+def filter_job(job: Dict[str, Any], profile: Any) -> Tuple[bool, str, Dict[str, Any]]:
     """
     Applies the full verification pipeline to a single job.
     Returns:
@@ -212,9 +156,10 @@ def filter_job(job: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
     if not is_usa_location(location, description):
         return False, "Not in USA", job
         
-    # 2. Security role check
-    if not is_cyber_security_role(title):
-        return False, "Not a Cyber Security role", job
+    # 2. Selected profile role check
+    is_role_match, role_reason = matches_profile_title(title, profile)
+    if not is_role_match:
+        return False, role_reason, job
         
     # 3. Experience check
     is_exp_match, exp_reason = parse_experience(description, title)
@@ -225,4 +170,4 @@ def filter_job(job: Dict[str, Any]) -> Tuple[bool, str, Dict[str, Any]]:
     enriched_job = job.copy()
     enriched_job["experience_metadata"] = exp_reason
     
-    return True, "Matches criteria", enriched_job
+    return True, role_reason, enriched_job

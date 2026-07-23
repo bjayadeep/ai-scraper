@@ -34,15 +34,15 @@ class GreenhouseScraper(BaseScraper):
                 
                 # Format date if available
                 # E.g. "2026-06-19T10:00:00Z" -> "2026-06-19"
-                date_posted = updated_at[:10] if updated_at else ""
-                
                 jobs_list.append({
                     "company": self.company_name,
                     "title": title,
                     "location": location,
                     "apply_link": apply_link,
                     "description": description,
-                    "date_posted": date_posted
+                    "date_posted": updated_at[:10] if updated_at else "",
+                    "source_posted_at": None,
+                    "source_updated_at": updated_at or None,
                 })
                 
             logger.info(f"Successfully scraped {len(jobs_list)} jobs for {self.company_name} from Greenhouse.")

@@ -1,5 +1,6 @@
 import logging
 from typing import List, Dict, Any
+from urllib.parse import urljoin, urlparse
 from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -26,8 +27,9 @@ class PlaywrightScraper(BaseScraper):
                 page = context.new_page()
                 page.goto(self.careers_url, wait_until="networkidle", timeout=30000)
                 
-                # Let's search for all links on the page and filter them
+                # Collect generic job-detail links. Profile classification happens later.
                 links = page.query_selector_all("a")
+                seen_urls = set()
                 
                 for link in links:
                     try:
@@ -37,29 +39,31 @@ class PlaywrightScraper(BaseScraper):
                         if not href or not text:
                             continue
                             
-                        # Resolve relative links
-                        if href.startswith("/"):
-                            # Simple concatenation with origin
-                            from urllib.parse import urlparse
-                            parsed_url = urlparse(self.careers_url)
-                            href = f"{parsed_url.scheme}://{parsed_url.netloc}{href}"
-                        elif not href.startswith("http"):
+                        href = urljoin(self.careers_url, href)
+                        if urlparse(href).scheme not in ("http", "https"):
                             continue
-                            
-                        # Filter links to find potential job listings
-                        # Look for security keywords in link text
-                        text_lower = text.lower()
-                        keywords = ["security", "cyber", "information security", "secops", "infosec", "penetration", "compliance"]
-                        
-                        if any(kw in text_lower for kw in keywords):
-                            # It's a potential cyber security job link!
+                        normalized_url = href.split("#", 1)[0]
+                        if normalized_url in seen_urls:
+                            continue
+
+                        href_lower = normalized_url.lower()
+                        job_path_markers = (
+                            "/job/", "/jobs/", "/position/", "/positions/", "/opening/",
+                            "/openings/", "/posting/", "/postings/", "jobid=", "job_id=",
+                        )
+                        generic_labels = {"jobs", "careers", "open positions", "view jobs", "search jobs"}
+                        looks_like_job = any(marker in href_lower for marker in job_path_markers)
+                        if looks_like_job and text.lower() not in generic_labels:
+                            seen_urls.add(normalized_url)
                             jobs_list.append({
                                 "company": self.company_name,
                                 "title": text,
                                 "location": "USA (Verify)",  # Browser extraction fallback
-                                "apply_link": href,
+                                "apply_link": normalized_url,
                                 "description": f"Scraped link text: {text}. See career page for full details.",
-                                "date_posted": ""
+                                "date_posted": "",
+                                "source_posted_at": None,
+                                "source_updated_at": None,
                             })
                     except Exception:
                         continue

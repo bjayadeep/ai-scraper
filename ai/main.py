@@ -22,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 def main():
-    logger.info("Starting Cyber Security Job Aggregator CLI...")
+    logger.info("Starting multi-domain job platform CLI...")
     try:
         success = run_pipeline()
         if success:

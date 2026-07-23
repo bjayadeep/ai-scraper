@@ -6,10 +6,11 @@ import pandas as pd
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from config import settings
+from src.profiles import profile_value
 
 logger = logging.getLogger(__name__)
 
-def generate_styled_excel(jobs: List[Dict[str, Any]]) -> str:
+def generate_styled_excel(jobs: List[Dict[str, Any]], profile: Any) -> str:
     """
     Generates a beautifully styled Excel file using pandas and openpyxl.
     Saves to history directory with naming CyberJobs_DDMMYYYY.xlsx.
@@ -20,7 +21,9 @@ def generate_styled_excel(jobs: List[Dict[str, Any]]) -> str:
     """
     # Create filename with current date: CyberJobs_DDMMYYYY.xlsx
     today_str = datetime.date.today().strftime("%d%m%Y")
-    base_filename = f"CyberJobs_{today_str}"
+    profile_slug = profile_value(profile, "slug", "jobs")
+    profile_name = profile_value(profile, "name", "Jobs")
+    base_filename = f"{profile_slug}_{today_str}"
     file_path = settings.HISTORY_DIR / f"{base_filename}.xlsx"
 
     # Handle locked file — append _v2, _v3 etc. if file is open in Excel
@@ -56,10 +59,11 @@ def generate_styled_excel(jobs: List[Dict[str, Any]]) -> str:
     
     # 2. Write to Excel using openpyxl engine
     writer = pd.ExcelWriter(file_path, engine="openpyxl")
-    df.to_excel(writer, index=False, startrow=3, sheet_name="Cyber Jobs")
+    sheet_name = profile_name[:31]
+    df.to_excel(writer, index=False, startrow=3, sheet_name=sheet_name)
     
     workbook = writer.book
-    worksheet = writer.sheets["Cyber Jobs"]
+    worksheet = writer.sheets[sheet_name]
     
     # Ensure grid lines are visible
     worksheet.views.sheetView[0].showGridLines = True
@@ -95,7 +99,7 @@ def generate_styled_excel(jobs: List[Dict[str, Any]]) -> str:
     center_align = Alignment(horizontal="center", vertical="center")
     
     # 3. Add Report Title Block
-    worksheet["A1"] = "🇺🇸 CYBER SECURITY JOB LEADS (1-6 YRS EXP)"
+    worksheet["A1"] = f"🇺🇸 {profile_name.upper()} JOB LEADS (1-6 YRS EXP)"
     worksheet["A1"].font = title_font
     
     generated_time = datetime.datetime.now().strftime("%B %d, %Y - %I:%M %p")

@@ -1,22 +1,19 @@
 import json
 import logging
 import requests
-from typing import List, Dict
+from typing import Any, List, Dict
 from config import settings
+from src.profiles import PROFILE_DEFINITIONS, profile_value
 
 logger = logging.getLogger(__name__)
 
 COMPANIES_PATH = settings.BASE_DIR / "config" / "companies.json"
 
-CLAUDE_DISCOVERY_PROMPT = """You are a cybersecurity recruitment expert who knows which US tech companies use Greenhouse or Ashby ATS.
+CLAUDE_DISCOVERY_PROMPT = """You are a technical recruitment expert who knows which US companies use Greenhouse or Ashby ATS.
 
-Generate {count} companies that hire cybersecurity professionals in the US. Think broadly:
-- Pure-play cybersecurity: endpoint, cloud security, SIEM, SOAR, IAM, GRC, threat intel, pen testing
-- Tech companies with large security teams: fintech, cloud infra, SaaS, e-commerce, social media, payments
-- Defense/government tech contractors with security roles
-- Compliance/audit tech companies
-- Data privacy and identity companies
-- Newer startups in AI security, API security, supply chain security, DevSecOps
+Generate {count} companies that hire US professionals for this selected job profile:
+Profile: {profile_name}
+Profile description: {profile_description}
 
 The Greenhouse API token is the slug in: boards-api.greenhouse.io/v1/boards/TOKEN/jobs
 The Ashby API token is the slug in: api.ashbyhq.com/posting-api/job-board/TOKEN
@@ -28,7 +25,7 @@ RESPONSE FORMAT (strict JSON array only, no other text):
 [{{"name": "CompanyName", "ats": "greenhouse", "token": "companytoken"}}]"""
 
 
-def discover_new_companies(target_count: int = 30) -> List[Dict]:
+def discover_new_companies(target_count: int = 30, profile: Any = None) -> List[Dict]:
     if not settings.CLAUDE_API_KEY:
         logger.warning("No Claude API key for company discovery.")
         return []
@@ -43,9 +40,17 @@ def discover_new_companies(target_count: int = 30) -> List[Dict]:
         import anthropic
         client = anthropic.Anthropic(api_key=settings.CLAUDE_API_KEY)
 
+        if profile is None:
+            profile_name = "All enabled initial profiles"
+            profile_description = "; ".join(item["description"] for item in PROFILE_DEFINITIONS)
+        else:
+            profile_name = profile_value(profile, "name", "Jobs")
+            profile_description = profile_value(profile, "description", "")
         prompt = CLAUDE_DISCOVERY_PROMPT.format(
             count=target_count,
             existing_names=existing_names[:3000],
+            profile_name=profile_name,
+            profile_description=profile_description,
         )
 
         MODELS = [

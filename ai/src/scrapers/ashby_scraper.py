@@ -38,6 +38,8 @@ class AshbyScraper(BaseScraper):
                     "apply_link": apply_link,
                     "description": description,
                     "date_posted": date_posted,
+                    "source_posted_at": published_at or None,
+                    "source_updated_at": None,
                 })
 
             logger.info(f"Successfully scraped {len(jobs_list)} jobs for {self.company_name} from Ashby.")

@@ -11,10 +11,10 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "CyberTalent ATS — Cybersecurity Recruitment Platform",
+  title: "Talent Atlas — Multi-Domain Job Platform",
   description:
-    "Enterprise applicant tracking system for cybersecurity talent acquisition. Manage companies, jobs, and automated sourcing pipelines.",
-  keywords: ["ATS", "cybersecurity", "recruitment", "talent acquisition", "job aggregator"],
+    "Configurable job sourcing across cybersecurity, Java, and .NET profiles.",
+  keywords: ["ATS", "cybersecurity", "Java", ".NET", "recruitment", "job aggregator"],
 };
 
 export default function RootLayout({

@@ -1,19 +1,22 @@
 import logging
 from typing import Tuple, Dict, Any
 from config import settings
+from src.profiles import profile_value
 
 logger = logging.getLogger(__name__)
 
 # Shared Claude prompt template for all job evaluations
-CLAUDE_PROMPT_TEMPLATE = """You are an expert cybersecurity recruiter with 10+ years of hiring experience at US tech companies.
+CLAUDE_PROMPT_TEMPLATE = """You are an expert technical recruiter evaluating a job for the selected profile below.
+
+SELECTED PROFILE:
+Name: {profile_name}
+Description: {profile_description}
 
 Evaluate the following job listing against ALL three criteria:
 
 CRITERIA:
 1. USA LOCATION: Is this job located in the United States? Remote-US is OK. International-only roles (UK, India, Europe, Canada, etc.) must be rejected.
-2. CYBER SECURITY ROLE: Is this a legitimate cybersecurity/information security role?
-   - ACCEPT: AppSec, Cloud Security, SOC, Penetration Testing, IAM, GRC, Compliance, Incident Response, Threat Intelligence, SecOps, Security Engineering, SIEM, Vulnerability Management, Cryptography, DevSecOps.
-   - REJECT: Physical Security Guard, Food Safety, IT Helpdesk (non-security), Generic Software Engineer, Sales, Marketing, HR.
+2. PROFILE MATCH: Does the title and description clearly match the selected profile? Distinguish Java from JavaScript. Treat .NET, dotnet, and C# as the same ecosystem. Reject physical-security and other non-cyber uses for the Cybersecurity profile.
 3. EXPERIENCE LEVEL (1-6 YEARS): Does the role target 1–6 years of experience?
    - ACCEPT: Junior, Mid-level, or roles requiring 1-6 years.
    - REJECT: Internships (0 years), or roles clearly requiring 7+ years (VP, Distinguished Engineer, Staff Principal with 10+ years).
@@ -30,12 +33,9 @@ Line 1: MATCH or NO_MATCH
 Line 2: One sentence reason."""
 
 
-def verify_job_with_ai(job: Dict[str, Any]) -> Tuple[bool, str]:
+def verify_job_with_ai(job: Dict[str, Any], profile: Any) -> Tuple[bool, str]:
     """
-    Validates a job using Claude claude-3-5-haiku-20241022 (fast + cheap) to verify:
-    1. Is it a cyber security role?
-    2. Is it in the USA?
-    3. Is experience level 1-6 years?
+    Validates a job against the selected profile, US location, and experience range.
 
     Falls back to True (accept) if API is unavailable or disabled.
 
@@ -62,6 +62,8 @@ def verify_job_with_ai(job: Dict[str, Any]) -> Tuple[bool, str]:
         description_clean = re.sub(r"\s+", " ", description_clean).strip()
 
         prompt = CLAUDE_PROMPT_TEMPLATE.format(
+            profile_name=profile_value(profile, "name", "Unknown"),
+            profile_description=profile_value(profile, "description", ""),
             company=job.get("company", "Unknown"),
             title=job.get("title", "Unknown"),
             location=job.get("location", "Unknown"),

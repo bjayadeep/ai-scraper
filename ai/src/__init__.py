@@ -1,1 +1,1 @@
-# Cyber Security Job Aggregator package
+# Multi-domain job platform package

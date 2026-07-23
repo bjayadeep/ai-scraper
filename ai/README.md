@@ -1,4 +1,23 @@
-# 🇺🇸 Cyber Security Job Aggregator MVP
+# Multi-Domain Job Platform
+
+One FastAPI backend, Next.js frontend, PostgreSQL database, company catalog, and scraper fleet classify each collected job against configurable profiles. Initial profiles are Cybersecurity (rolling 24 hours), Java Developer (current America/New_York day), and .NET Developer (current America/New_York day).
+
+## Database migration
+
+Run the Alembic migration before deploying the updated backend:
+
+```bash
+cd ai
+alembic upgrade head
+```
+
+The initial revision creates the schema for empty databases, adds profile and observation tables to existing databases, seeds all three profiles, backfills `first_seen_at` and `last_seen_at`, and associates every existing job with Cybersecurity.
+
+Scheduled runs (`main.py`) and manual company scrapes both use `src/ingestion.py`. Each company board is fetched once per run, jobs are upserted with source and observation timestamps, then classified against every enabled profile.
+
+---
+
+## Legacy overview
 
 An automated daily job aggregator that scrapes careers boards of target companies, filters for US-based Cyber Security roles matching 1–6 years of experience, deduplicates against historical runs (last 90 days), applies a company diversity filter, formats a premium styled Excel sheet, and sends it via email.
 

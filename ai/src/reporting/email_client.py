@@ -8,12 +8,15 @@ from email import encoders
 from pathlib import Path
 from typing import List, Dict, Any
 from config import settings
+from src.profiles import profile_value
 
 logger = logging.getLogger(__name__)
 
-def build_html_body(jobs: List[Dict[str, Any]]) -> str:
+def build_html_body(jobs: List[Dict[str, Any]], profile: Any) -> str:
     """Creates a beautiful, styled HTML body for the email report."""
     today_str = datetime.date.today().strftime("%B %d, %Y")
+    profile_name = profile_value(profile, "name", "Jobs")
+    profile_description = profile_value(profile, "description", "")
     
     # Generate job list table rows
     table_rows = ""
@@ -144,12 +147,12 @@ def build_html_body(jobs: List[Dict[str, Any]]) -> str:
     <body>
         <div class="container">
             <div class="header">
-                <h1>🇺🇸 Cyber Security Job Aggregator</h1>
+                <h1>🇺🇸 {profile_name} Job Digest</h1>
                 <p>Daily Digest — {today_str}</p>
             </div>
             <div class="content">
                 <div class="summary-box">
-                    <p><strong>🎯 Today's Summary:</strong> We identified <strong>{len(jobs)}</strong> fresh, unique Cyber Security roles in the US matching 1-6 years of experience. A beautiful, formatted Excel sheet is attached to this email.</p>
+                    <p><strong>🎯 Profile Summary:</strong> We identified <strong>{len(jobs)}</strong> matching US roles. {profile_description} A formatted Excel sheet is attached.</p>
                 </div>
                 
                 <h3>🔥 Top Job Leads Preview:</h3>
@@ -172,7 +175,7 @@ def build_html_body(jobs: List[Dict[str, Any]]) -> str:
                 {footer_preview_note}
             </div>
             <div class="footer">
-                <p>Sent by Cyber Security Job Aggregator automated pipeline.</p>
+                <p>Sent by the multi-domain job platform automated pipeline for {profile_name}.</p>
                 <p>Configure targets, notifications, and AI filters in your settings.</p>
             </div>
         </div>
@@ -181,7 +184,7 @@ def build_html_body(jobs: List[Dict[str, Any]]) -> str:
     """
     return html
 
-def send_email_with_report(excel_path: str, jobs: List[Dict[str, Any]]) -> bool:
+def send_email_with_report(excel_path: str, jobs: List[Dict[str, Any]], profile: Any) -> bool:
     """
     Sends the generated Excel report to the configured recipient email address.
     """
@@ -200,7 +203,8 @@ def send_email_with_report(excel_path: str, jobs: List[Dict[str, Any]]) -> bool:
         
     try:
         today_str = datetime.date.today().strftime("%d/%m/%Y")
-        subject = f"🇺🇸 Cyber Security Jobs Digest ({today_str}) - {len(jobs)} Leads"
+        profile_name = profile_value(profile, "name", "Jobs")
+        subject = f"🇺🇸 {profile_name} Jobs Digest ({today_str}) - {len(jobs)} Leads"
         
         recipients = [e.strip() for e in settings.EMAIL_TO.split(",") if e.strip()]
 
@@ -209,7 +213,7 @@ def send_email_with_report(excel_path: str, jobs: List[Dict[str, Any]]) -> bool:
         msg["To"] = ", ".join(recipients)
         msg["Subject"] = subject
 
-        html_body = build_html_body(jobs)
+        html_body = build_html_body(jobs, profile)
         msg.attach(MIMEText(html_body, "html"))
 
         logger.info(f"Attaching Excel file to email: {excel_file.name}")

@@ -21,7 +21,9 @@ class BaseScraper(ABC):
                     "location": "Remote, US",
                     "apply_link": "https://...",
                     "description": "...",
-                    "date_posted": "2026-06-20"
+                    "date_posted": "2026-06-20",
+                    "source_posted_at": "2026-06-20T14:00:00Z",
+                    "source_updated_at": "2026-06-21T14:00:00Z"
                 }
             ]
         """

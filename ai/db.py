@@ -1,7 +1,17 @@
 import os
 import bcrypt
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ForeignKey, inspect
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+)
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from dotenv import load_dotenv
 
@@ -76,6 +86,42 @@ class Job(Base):
     date_posted = Column(String(50), nullable=True)  # Format: "YYYY-MM-DD"
     scraped_at = Column(DateTime, default=datetime.datetime.utcnow)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    source_posted_at = Column(DateTime(timezone=True), nullable=True)
+    source_updated_at = Column(DateTime(timezone=True), nullable=True)
+    first_seen_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    last_seen_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    profile_matches = relationship("JobProfileMatch", back_populates="job", cascade="all, delete-orphan")
+
+
+class JobProfile(Base):
+    __tablename__ = "job_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String(100), unique=True, index=True, nullable=False)
+    name = Column(String(255), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    window_type = Column(String(50), nullable=False)
+    timezone = Column(String(100), nullable=False, default="America/New_York")
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    job_matches = relationship("JobProfileMatch", back_populates="profile", cascade="all, delete-orphan")
+
+
+class JobProfileMatch(Base):
+    __tablename__ = "job_profile_matches"
+    __table_args__ = (UniqueConstraint("job_id", "profile_id", name="uq_job_profile_match"),)
+
+    id = Column(Integer, primary_key=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    profile_id = Column(Integer, ForeignKey("job_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    classification_reason = Column(Text, nullable=True)
+    matched_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    job = relationship("Job", back_populates="profile_matches")
+    profile = relationship("JobProfile", back_populates="job_matches")
 
 class ActivityLog(Base):
     __tablename__ = "activity_logs"
@@ -109,6 +155,8 @@ def init_db():
     # Check if a user table is empty, and seed the default admin
     db = SessionLocal()
     try:
+        from src.profiles import seed_job_profiles
+        seed_job_profiles(db)
         admin_email = os.getenv("ADMIN_EMAIL", "admin@cyberjobs.com")
         admin_password = os.getenv("ADMIN_PASSWORD", "adminpassword123")
         

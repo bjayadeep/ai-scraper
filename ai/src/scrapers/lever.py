@@ -48,12 +48,14 @@ class LeverScraper(BaseScraper):
                 # E.g. 1622548800000 -> "2021-06-01"
                 created_at = post.get("createdAt", None)
                 date_posted = ""
+                source_posted_at = None
                 if created_at:
                     try:
                         import datetime
                         # convert milliseconds timestamp to datetime object
                         dt = datetime.datetime.fromtimestamp(created_at / 1000.0, tz=datetime.timezone.utc)
                         date_posted = dt.strftime("%Y-%m-%d")
+                        source_posted_at = dt.isoformat()
                     except Exception:
                         pass
                 
@@ -63,7 +65,9 @@ class LeverScraper(BaseScraper):
                     "location": location,
                     "apply_link": apply_link,
                     "description": description,
-                    "date_posted": date_posted
+                    "date_posted": date_posted,
+                    "source_posted_at": source_posted_at,
+                    "source_updated_at": None,
                 })
                 
             logger.info(f"Successfully scraped {len(jobs_list)} jobs for {self.company_name} from Lever.")
