@@ -54,9 +54,6 @@ export default function LoginPage() {
           <h2 className="text-xl font-bold tracking-tight text-[#1E293B]">
             Sign in to Console
           </h2>
-          <p className="mt-1 text-xs text-[#5B5F4A]">
-            Cyber Security Job Aggregator platform
-          </p>
         </div>
 
         {/* Elegant White Form Card */}

@@ -232,7 +232,7 @@ export default function CompaniesPage() {
           className="btn-primary inline-flex items-center gap-1.5 text-xs py-2 px-4 font-semibold bg-[#C67C2E] text-white hover:bg-[#A9621C] rounded-xl"
         >
           <Plus className="h-4 w-4" />
-          <span>Add Target</span>
+          <span>Add Company</span>
         </button>
       </div>
 
@@ -257,7 +257,7 @@ export default function CompaniesPage() {
             onChange={(e) => { setAtsFilter(e.target.value); setPage(1); }}
             className="w-full sm:w-auto appearance-none rounded-xl border border-[#EADFCF] bg-[#FFFDFC] pl-3 pr-8.5 py-1.5 text-xs text-[#5B5F4A] outline-none focus:border-[#2F6F5E] cursor-pointer font-semibold"
           >
-            <option value="">All Integration Types</option>
+            <option value="">All Company Types</option>
             <option value="greenhouse">Greenhouse API</option>
             <option value="lever">Lever API</option>
             <option value="ashby">Ashby API</option>
@@ -392,7 +392,7 @@ export default function CompaniesPage() {
             <button onClick={closeAddModal} className="absolute top-4 right-4 text-[#5B5F4A]/70 hover:text-[#1E293B]">
               <X className="h-4 w-4" />
             </button>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1E293B] mb-1">Add Scraper Target</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1E293B] mb-1">Add Company</h3>
             <p className="text-[10px] text-[#5B5F4A] mb-6">Setup careers board details for daily scrapes</p>
             
             <form onSubmit={(e) => handleCreate(e, false)} className="space-y-4">

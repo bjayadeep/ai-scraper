@@ -54,7 +54,7 @@ export default function JobsPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-[#1E293B]">Aggregated Job Leads</h1>
           <p className="text-xs text-[#5B5F4A]">
-            US-based Cyber Security roles matching 1–6 years of experience
+            US-based roles matching 1–6 years of experience
           </p>
         </div>
         <button

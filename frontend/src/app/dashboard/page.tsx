@@ -91,7 +91,7 @@ export default function DashboardOverview() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-[#1E293B]">Recruitment Overview</h1>
           <p className="text-xs text-[#5B5F4A]">
-            System status monitoring automated cyber security job sweeps
+            System status monitoring automated job sweeps
           </p>
         </div>
         <button
