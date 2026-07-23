@@ -11,6 +11,8 @@ cd ai
 alembic upgrade head
 ```
 
+The FastAPI startup hook also runs `alembic upgrade head` automatically before serving requests, so existing Render services receive the migration during redeploy.
+
 The initial revision creates the schema for empty databases, adds profile and observation tables to existing databases, seeds all three profiles, backfills `first_seen_at` and `last_seen_at`, and associates every existing job with Cybersecurity.
 
 Scheduled runs (`main.py`) and manual company scrapes both use `src/ingestion.py`. Each company board is fetched once per run, jobs are upserted with source and observation timestamps, then classified against every enabled profile.

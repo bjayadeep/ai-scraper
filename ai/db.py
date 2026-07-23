@@ -39,6 +39,17 @@ else:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+
+def migrate_db():
+    """Upgrade the configured database before the application serves requests."""
+    from alembic import command
+    from alembic.config import Config
+
+    ai_dir = os.path.dirname(os.path.abspath(__file__))
+    alembic_config = Config(os.path.join(ai_dir, "alembic.ini"))
+    alembic_config.set_main_option("script_location", os.path.join(ai_dir, "migrations"))
+    command.upgrade(alembic_config, "head")
+
 # Password hashing helpers using bcrypt
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()

@@ -15,7 +15,7 @@ import jwt
 current_dir = Path(__file__).resolve().parent
 sys.path.append(str(current_dir))
 
-from db import SessionLocal, User, Company, Job, JobProfile, JobProfileMatch, ActivityLog, Setting, get_db, hash_password, verify_password, init_db
+from db import SessionLocal, User, Company, Job, JobProfile, JobProfileMatch, ActivityLog, Setting, get_db, hash_password, verify_password, migrate_db, init_db
 from scrape_trigger import scrape_single_company
 from config import settings
 from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, PlaywrightScraper
@@ -44,6 +44,7 @@ app.add_middleware(
 # Startup DB setup
 @app.on_event("startup")
 def on_startup():
+    migrate_db()
     init_db()
 
 # --- Pydantic Schemas ---
