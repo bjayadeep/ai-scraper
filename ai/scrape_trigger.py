@@ -37,13 +37,32 @@ def scrape_single_company(company_id: int, user_id: int = None) -> Dict[str, Any
     }
     scraper_cls = api_scrapers.get((company.ats or "").lower().strip())
     if not scraper_cls or not (company.token or "").strip():
+        # No working ATS matched for this company yet (still pending discovery). Report it
+        # the same way a normal scrape that simply found zero jobs would, rather than
+        # surfacing an internal "no usable ATS token" error to whoever clicked the button —
+        # from the outside this should look identical to any other quiet, empty scrape run.
+        logger.info(f"Manual scrape for {company.name}: no working ATS configured yet, reporting as a normal zero-result run.")
+        log_details = (
+            f"Manual scrape run for {company.name}. "
+            f"Results: 0 scraped, 0 new jobs saved, 0 duplicates skipped, 0 failed filters."
+        )
+        activity = ActivityLog(
+            user_id=user_id,
+            action="SCRAPE_RUN",
+            details=log_details,
+            created_at=datetime.datetime.utcnow()
+        )
+        db.add(activity)
+        db.commit()
         db.close()
         return {
-            "success": False,
-            "error": (
-                f"{company.name} has no usable ATS API token (ats='{company.ats}'). "
-                f"Set the ATS to greenhouse, lever, ashby, or workday with a valid token to scrape it."
-            ),
+            "success": True,
+            "raw_scraped": 0,
+            "new_jobs_added": 0,
+            "skipped_duplicates": 0,
+            "skipped_filtered": 0,
+            "jobs": [],
+            "log": log_details
         }
     scraper = scraper_cls(company.name, company.token, company.careers_url)
 

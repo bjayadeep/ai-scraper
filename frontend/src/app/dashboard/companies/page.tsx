@@ -301,10 +301,9 @@ export default function CompaniesPage() {
                     <td className="px-6 py-3.5 text-right space-x-1 whitespace-nowrap">
                       {/* Scrape Target */}
                       <button
-                        onClick={() => company.ats !== "playwright" && scrapeMutation.mutate(company.id)}
-                        disabled={company.ats === "playwright"}
-                        title={company.ats === "playwright" ? "Not yet configured — no working careers board detected" : "Scrape target board now"}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-[#EADFCF] bg-[#FFFDFC] text-[#5B5F4A] hover:bg-[#2F6F5E]/5 hover:text-[#2F6F5E] hover:border-[#2F6F5E]/20 transition active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#FFFDFC] disabled:hover:text-[#5B5F4A] disabled:hover:border-[#EADFCF]"
+                        onClick={() => scrapeMutation.mutate(company.id)}
+                        title="Scrape target board now"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-[#EADFCF] bg-[#FFFDFC] text-[#5B5F4A] hover:bg-[#2F6F5E]/5 hover:text-[#2F6F5E] hover:border-[#2F6F5E]/20 transition active:scale-95 cursor-pointer"
                       >
                         <Play className="h-3 w-3" />
                       </button>
