@@ -429,16 +429,21 @@ def detect_ats_from_url(company_name: str, careers_url: str) -> tuple:
     if not careers_url:
         return None, None
 
+    # Check the URL exactly as given first — a company's own domain sometimes redirects a
+    # direct ATS board link (e.g. boards.greenhouse.io/x) onward to a branded custom-domain
+    # careers page, which would hide the ATS from a final-URL/HTML check below.
+    urls_to_check = [careers_url]
+    html_snippet = ""
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
         resp = requests.get(careers_url, headers=headers, timeout=15, allow_redirects=True)
-        final_url = resp.url
+        urls_to_check.append(resp.url)
         html_snippet = resp.text[:20000] if resp.status_code == 200 else ""
     except Exception as e:
         logger.warning(f"detect_ats_from_url: could not fetch {careers_url} for {company_name}: {e}")
-        return None, None
 
     scraper_classes = {
         "greenhouse": GreenhouseScraper,
@@ -448,7 +453,13 @@ def detect_ats_from_url(company_name: str, careers_url: str) -> tuple:
     }
 
     for ats, pattern in _ATS_URL_PATTERNS.items():
-        match = pattern.search(final_url) or pattern.search(html_snippet)
+        match = None
+        for url in urls_to_check:
+            match = pattern.search(url)
+            if match:
+                break
+        if not match:
+            match = pattern.search(html_snippet)
         if not match:
             continue
 
