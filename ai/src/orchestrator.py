@@ -1,6 +1,8 @@
 import datetime
 import json
 import logging
+import re
+import requests
 from pathlib import Path
 from typing import List, Dict, Any
 from config import settings
@@ -403,3 +405,66 @@ def scrape_try_all(company_name: str, token: str, careers_url: str) -> tuple:
         f"A valid Greenhouse, Lever, or Ashby token is required for it to be scraped daily."
     )
     return None, []
+
+# URL patterns that reveal a known ATS platform, either directly in a careers URL or in
+# the final URL/page a generic company careers link redirects to.
+_ATS_URL_PATTERNS = {
+    "greenhouse": re.compile(r"(?:boards|job-boards)\.greenhouse\.io/([A-Za-z0-9_-]+)"),
+    "lever": re.compile(r"jobs\.lever\.co/([A-Za-z0-9_-]+)"),
+    "ashby": re.compile(r"jobs\.ashbyhq\.com/([A-Za-z0-9_-]+)"),
+    "workday": re.compile(r"([a-z0-9-]+)\.(wd\d+)\.myworkdayjobs\.com/(?:[a-z]{2}-[A-Z]{2}/)?([A-Za-z0-9_-]+)"),
+}
+
+def detect_ats_from_url(company_name: str, careers_url: str) -> tuple:
+    """
+    Given any careers page URL a non-technical user might paste (a generic company
+    careers link, or a direct ATS board link), follows redirects and inspects the final
+    URL/page for a known ATS platform, then verifies the match against that platform's
+    real API before accepting it — never returns an unverified guess.
+
+    Returns:
+        (ats, token) if a supported ATS was found and confirmed to return real jobs,
+        (None, None) otherwise.
+    """
+    if not careers_url:
+        return None, None
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try:
+        resp = requests.get(careers_url, headers=headers, timeout=15, allow_redirects=True)
+        final_url = resp.url
+        html_snippet = resp.text[:20000] if resp.status_code == 200 else ""
+    except Exception as e:
+        logger.warning(f"detect_ats_from_url: could not fetch {careers_url} for {company_name}: {e}")
+        return None, None
+
+    scraper_classes = {
+        "greenhouse": GreenhouseScraper,
+        "lever": LeverScraper,
+        "ashby": AshbyScraper,
+        "workday": WorkdayScraper,
+    }
+
+    for ats, pattern in _ATS_URL_PATTERNS.items():
+        match = pattern.search(final_url) or pattern.search(html_snippet)
+        if not match:
+            continue
+
+        if ats == "workday":
+            tenant, data_center, site = match.groups()
+            token = f"{tenant}.{data_center}.{site}"
+        else:
+            token = match.group(1)
+
+        try:
+            scraper = scraper_classes[ats](company_name, token, careers_url)
+            jobs = scraper.scrape()
+            if jobs:
+                return ats, token
+        except Exception as e:
+            logger.warning(f"detect_ats_from_url: {ats} match for {company_name} ({token}) failed verification: {e}")
+        return None, None
+
+    return None, None

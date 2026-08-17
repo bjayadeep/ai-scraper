@@ -151,41 +151,17 @@ export default function CompaniesPage() {
     setIsDeleteOpen(true);
   };
 
-  const handleCreate = (e: React.FormEvent, runScrapeAfterSave: boolean = false) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
-    if (!name || !ats) {
-      setFormError("Company name and ATS type are required.");
+    if (!name || !careersUrl) {
+      setFormError("Company name and company URL are required.");
       return;
     }
 
-    if (ats !== "playwright" && ats !== "all" && !token) {
-      setFormError(`ATS token slug is required for ${ats}.`);
-      return;
-    }
-
-    if (ats === "all" && !token && !careersUrl) {
-      setFormError("Either ATS token slug or Careers Page URL is required for 'All'.");
-      return;
-    }
-
-    const payload = {
-      name,
-      ats,
-      token: (ats === "playwright" || (ats === "all" && !token)) ? null : token,
-      careers_url: careersUrl
-    };
-
-    if (runScrapeAfterSave) {
-      createMutation.mutate(payload, {
-        onSuccess: (savedCompany) => {
-          scrapeMutation.mutate(savedCompany.id);
-        }
-      });
-    } else {
-      createMutation.mutate(payload);
-    }
+    // ats/token intentionally omitted — the backend detects the real ATS from the URL.
+    createMutation.mutate({ name, careers_url: careersUrl });
   };
 
   const handleUpdate = (e: React.FormEvent) => {
@@ -303,7 +279,8 @@ export default function CompaniesPage() {
                         company.ats === "greenhouse" ? "badge-green" :
                         company.ats === "lever" ? "badge-blue" :
                         company.ats === "ashby" ? "badge-purple" :
-                        "badge-amber"
+                        company.ats === "workday" ? "badge-teal" :
+                        "badge-neutral"
                       }`}>
                         {company.ats}
                       </span>
@@ -324,9 +301,10 @@ export default function CompaniesPage() {
                     <td className="px-6 py-3.5 text-right space-x-1 whitespace-nowrap">
                       {/* Scrape Target */}
                       <button
-                        onClick={() => scrapeMutation.mutate(company.id)}
-                        title="Scrape target board now"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-[#EADFCF] bg-[#FFFDFC] text-[#5B5F4A] hover:bg-[#2F6F5E]/5 hover:text-[#2F6F5E] hover:border-[#2F6F5E]/20 transition active:scale-95 cursor-pointer"
+                        onClick={() => company.ats !== "playwright" && scrapeMutation.mutate(company.id)}
+                        disabled={company.ats === "playwright"}
+                        title={company.ats === "playwright" ? "Not yet configured — no working careers board detected" : "Scrape target board now"}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-[#EADFCF] bg-[#FFFDFC] text-[#5B5F4A] hover:bg-[#2F6F5E]/5 hover:text-[#2F6F5E] hover:border-[#2F6F5E]/20 transition active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#FFFDFC] disabled:hover:text-[#5B5F4A] disabled:hover:border-[#EADFCF]"
                       >
                         <Play className="h-3 w-3" />
                       </button>
@@ -394,9 +372,9 @@ export default function CompaniesPage() {
               <X className="h-4 w-4" />
             </button>
             <h3 className="text-sm font-bold uppercase tracking-wider text-[#1E293B] mb-1">Add Company</h3>
-            <p className="text-[10px] text-[#5B5F4A] mb-6">Setup careers board details for daily scrapes</p>
-            
-            <form onSubmit={(e) => handleCreate(e, false)} className="space-y-4">
+            <p className="text-[10px] text-[#5B5F4A] mb-6">We'll detect the careers board automatically</p>
+
+            <form onSubmit={handleCreate} className="space-y-4">
               {formError && (
                 <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-[#C53030] font-semibold animate-in fade-in">
                   <AlertCircle className="h-4 w-4 shrink-0 text-[#C53030]" />
@@ -417,50 +395,13 @@ export default function CompaniesPage() {
                 />
               </div>
 
-              {/* ATS Platform */}
+              {/* Company URL */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">ATS Provider Type</label>
-                <div className="relative">
-                  <select
-                    value={ats}
-                    onChange={(e) => setAts(e.target.value)}
-                    className="w-full appearance-none rounded-xl border border-[#EADFCF] bg-[#FFFDFC] pl-3 pr-8.5 py-2 text-xs text-[#1E293B] outline-none focus:border-[#2F6F5E] transition cursor-pointer font-semibold text-[#5B5F4A]"
-                  >
-                    <option value="greenhouse">Greenhouse API</option>
-                    <option value="lever">Lever API</option>
-                    <option value="ashby">Ashby API</option>
-                    <option value="workday">Workday API</option>
-                    <option value="playwright">Playwright Custom Crawler</option>
-                    <option value="all">All (Auto-Detect)</option>
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#5B5F4A] pointer-events-none" />
-                </div>
-              </div>
-
-              {/* ATS Token */}
-              {ats !== "playwright" && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">
-                    ATS Token Slug{ats === "all" && <span className="font-normal text-[#5B5F4A]/60 normal-case tracking-normal"> (optional for Auto-Detect)</span>}
-                    {ats === "workday" && <span className="font-normal text-[#5B5F4A]/60 normal-case tracking-normal"> (tenant.data_center.site)</span>}
-                  </label>
-                  <input
-                    type="text"
-                    required={ats !== "all"}
-                    placeholder={ats === "all" ? "e.g. cloudflare (optional if URL provided)" : ats === "workday" ? "e.g. amgen.wd1.Careers" : "e.g. cloudflare"}
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    className="w-full rounded-xl border border-[#EADFCF] bg-[#FFFDFC] px-3 py-2 text-xs text-[#1E293B] outline-none focus:border-[#2F6F5E] focus:ring-2 focus:ring-[#2F6F5E]/10 transition"
-                  />
-                </div>
-              )}
-
-              {/* Careers URL */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">Careers Page URL</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-[#5B5F4A]">Company URL</label>
                 <input
                   type="url"
-                  placeholder="https://..."
+                  required
+                  placeholder="https://company.com/careers"
                   value={careersUrl}
                   onChange={(e) => setCareersUrl(e.target.value)}
                   className="w-full rounded-xl border border-[#EADFCF] bg-[#FFFDFC] px-3 py-2 text-xs text-[#1E293B] outline-none focus:border-[#2F6F5E] focus:ring-2 focus:ring-[#2F6F5E]/10 transition"
@@ -479,17 +420,9 @@ export default function CompaniesPage() {
                 <button
                   type="submit"
                   disabled={createMutation.isPending}
-                  className="btn-secondary py-1.5 px-3 text-[10px] font-semibold rounded-xl"
+                  className="btn-primary py-1.5 px-4 text-[10px] font-semibold bg-[#C67C2E] text-white hover:bg-[#A9621C] rounded-xl"
                 >
-                  {createMutation.isPending ? "Saving..." : "Save Config"}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => handleCreate(e, true)}
-                  disabled={createMutation.isPending || scrapeMutation.isPending}
-                  className="btn-primary py-1.5 px-3 text-[10px] font-semibold bg-[#C67C2E] text-white hover:bg-[#A9621C] rounded-xl"
-                >
-                  {createMutation.isPending || scrapeMutation.isPending ? "Scraping..." : "Save & Scrape"}
+                  {createMutation.isPending ? "Adding..." : "Add Company"}
                 </button>
               </div>
             </form>

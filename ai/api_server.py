@@ -21,7 +21,7 @@ from db import SessionLocal, User, Company, Job, ActivityLog, Setting, Recipient
 from scrape_trigger import scrape_single_company
 from config import settings
 from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, WorkdayScraper
-from src.orchestrator import scrape_try_all, DOMAINS
+from src.orchestrator import scrape_try_all, detect_ats_from_url, DOMAINS
 from src.reporting import send_domain_report_email
 from src.reporting.excel import DOMAIN_REPORT_META
 
@@ -76,7 +76,7 @@ class UserResponse(BaseModel):
 
 class CompanyCreate(BaseModel):
     name: str
-    ats: str  # "greenhouse", "lever", "ashby", "workday", "playwright"
+    ats: Optional[str] = None  # "greenhouse", "lever", "ashby", "workday", "playwright" — omit to auto-detect from careers_url
     token: Optional[str] = None
     careers_url: Optional[str] = ""
 
@@ -468,19 +468,36 @@ def create_company(req: CompanyCreate, db: Session = Depends(get_db), current_us
         existing_token = db.query(Company).filter(Company.token == req.token.lower()).first()
         if existing_token:
             raise HTTPException(status_code=400, detail="Company with this ATS token already exists.")
-            
-    # Validate and detect correct ATS
-    detected_ats = validate_and_detect_ats(
-        ats=req.ats,
-        token=req.token,
-        careers_url=req.careers_url,
-        company_name=req.name
-    )
+
+    if req.ats:
+        # Explicit ATS + token given — validate strictly and raise on failure (admin/config flow).
+        detected_ats = validate_and_detect_ats(
+            ats=req.ats,
+            token=req.token,
+            careers_url=req.careers_url,
+            company_name=req.name
+        )
+        final_token = req.token.strip().lower() if req.token else None
+    else:
+        # Simplified flow: only a name + careers URL were given. Best-effort auto-detect the
+        # real ATS from the URL; never block the save on failure — a company that can't be
+        # identified yet just goes in as "playwright" (pending), same as any other company
+        # waiting on a future ATS match, instead of showing the client a scary error.
+        if not req.careers_url:
+            raise HTTPException(status_code=400, detail="Company URL is required.")
+        detected_ats_result, detected_token = detect_ats_from_url(req.name, req.careers_url)
+        token_taken = detected_token and db.query(Company).filter(Company.token == detected_token.lower()).first()
+        if detected_ats_result and not token_taken:
+            detected_ats = detected_ats_result
+            final_token = detected_token
+        else:
+            detected_ats = "playwright"
+            final_token = None
 
     company = Company(
         name=req.name.strip(),
         ats=detected_ats,
-        token=req.token.strip().lower() if req.token else None,
+        token=final_token,
         careers_url=req.careers_url.strip() if req.careers_url else ""
     )
     
