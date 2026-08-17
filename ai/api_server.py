@@ -17,7 +17,7 @@ import jwt
 current_dir = Path(__file__).resolve().parent
 sys.path.append(str(current_dir))
 
-from db import SessionLocal, User, Company, Job, ActivityLog, Setting, Recipient, DailyRecipient, get_db, hash_password, verify_password, init_db, get_latest_domain_report, get_daily_digest_recipients, get_domain_report_dates, get_domain_report_by_date
+from db import SessionLocal, User, Company, Job, ActivityLog, Setting, Recipient, DailyRecipient, DomainReport, get_db, hash_password, verify_password, init_db, get_latest_domain_report, get_daily_digest_recipients, get_domain_report_dates, get_domain_report_by_date
 from scrape_trigger import scrape_single_company
 from config import settings
 from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, WorkdayScraper
@@ -272,16 +272,20 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user: User = Depe
         for l in recent_logs
     ]
     
-    # Scraped jobs trends (last 7 days)
+    # Scraped jobs trends (last 7 days) — sourced from the daily domain reports
+    # (job_count saved alongside each day's Excel report), since the automated
+    # daily pipeline never writes individual rows into the `jobs` table. That
+    # table is only populated by the manual "scrape one company" button on the
+    # Companies page, so counting it here would always undercount real daily volume.
     trends = []
     for i in range(6, -1, -1):
         day = datetime.datetime.utcnow().date() - datetime.timedelta(days=i)
-        day_start = datetime.datetime.combine(day, datetime.time.min)
-        day_end = datetime.datetime.combine(day, datetime.time.max)
-        count = db.query(Job).filter(Job.scraped_at >= day_start, Job.scraped_at <= day_end).count()
+        count = db.query(func.coalesce(func.sum(DomainReport.job_count), 0)).filter(
+            DomainReport.report_date == day
+        ).scalar()
         trends.append({
             "date": day.strftime("%b %d"),
-            "jobs": count
+            "jobs": int(count or 0)
         })
         
     return {
