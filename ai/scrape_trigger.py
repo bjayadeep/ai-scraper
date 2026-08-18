@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parent))
 
 from db import SessionLocal, Company, Job, ActivityLog
 from config import settings
-from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, WorkdayScraper
+from src.scrapers import GreenhouseScraper, LeverScraper, AshbyScraper, WorkdayScraper, PlaywrightScraper
 from src.filters import filter_job, verify_job_with_ai
 
 logger = logging.getLogger("scrape_trigger")
@@ -27,16 +27,20 @@ def scrape_single_company(company_id: int, user_id: int = None) -> Dict[str, Any
         
     logger.info(f"Triggering manual scrape for: {company.name} (ATS: {company.ats})")
     
-    # 1. Instantiate correct Scraper. Only real ATS APIs are supported — a company without
-    # one cannot be scraped reliably (see the note in src/orchestrator.run_pipeline).
+    # 1. Instantiate correct Scraper. Real ATS APIs need a token; the "playwright" fallback
+    # (PlaywrightScraper) instead needs a careers_url, and only ever returns real schema.org
+    # JobPosting structured data -- never a guessed result (see src/scrapers/playwright_scraper.py).
     api_scrapers = {
         "greenhouse": GreenhouseScraper,
         "lever": LeverScraper,
         "ashby": AshbyScraper,
         "workday": WorkdayScraper,
+        "playwright": PlaywrightScraper,
     }
-    scraper_cls = api_scrapers.get((company.ats or "").lower().strip())
-    if not scraper_cls or not (company.token or "").strip():
+    ats_type = (company.ats or "").lower().strip()
+    scraper_cls = api_scrapers.get(ats_type)
+    has_required_input = (company.careers_url or "").strip() if ats_type == "playwright" else (company.token or "").strip()
+    if not scraper_cls or not has_required_input:
         # No working ATS matched for this company yet (still pending discovery). Report it
         # the same way a normal scrape that simply found zero jobs would, rather than
         # surfacing an internal "no usable ATS token" error to whoever clicked the button —
@@ -64,7 +68,7 @@ def scrape_single_company(company_id: int, user_id: int = None) -> Dict[str, Any
             "jobs": [],
             "log": log_details
         }
-    scraper = scraper_cls(company.name, company.token, company.careers_url)
+    scraper = scraper_cls(company.name, company.token or "", company.careers_url)
 
 
     try:
