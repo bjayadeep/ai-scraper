@@ -22,6 +22,9 @@ const DOMAIN_OPTIONS = [
   { value: "all", label: "All roles" },
   { value: "data_analyst", label: "Data Analyst roles" },
   { value: "data_engineer", label: "Data Engineer roles" },
+  // Retired domain, kept selectable only so reports saved before the Data Analyst/Engineer
+  // split (Aug 21, 2026) stay sendable -- no new reports are ever generated under it.
+  { value: "data", label: "Data roles (Legacy, before Aug 21 2026)" },
   { value: "java", label: "Java roles" },
   { value: "dotnet", label: ".NET roles" },
   { value: "cyber", label: "Cyber roles" },

@@ -19,6 +19,10 @@ import api from "@/lib/api";
 const DOMAIN_OPTIONS = [
   { value: "data_analyst", label: "Data Analyst roles" },
   { value: "data_engineer", label: "Data Engineer roles" },
+  // Retired domain, kept selectable only so reports saved before the Data Analyst/Engineer
+  // split (Aug 21, 2026) stay viewable -- no new reports are ever generated under it, so
+  // its calendar naturally stays bounded to dates on or before the split.
+  { value: "data", label: "Data roles (Legacy, before Aug 21 2026)" },
   { value: "java", label: "Java roles" },
   { value: "dotnet", label: ".NET roles" },
   { value: "cyber", label: "Cyber roles" },
