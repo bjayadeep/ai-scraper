@@ -5,7 +5,7 @@ import datetime
 import pandas as pd
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr
@@ -862,6 +862,36 @@ def get_domain_report_dates_endpoint(domain: str = Query(...), current_user: Use
     if domain not in DOMAINS and domain not in LEGACY_DOMAINS:
         raise HTTPException(status_code=400, detail=f"Unsupported domain: {domain}. Must be one of {DOMAINS}.")
     return {"domain": domain, "dates": get_domain_report_dates(domain)}
+
+@router.get("/domain-reports/download")
+def download_domain_report(
+    domain: str = Query(...),
+    date: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user)
+):
+    """Streams the raw stored .xlsx bytes for a domain's report, latest by default or an
+    exact date if given, so it can be saved locally rather than only viewed/emailed."""
+    domain = domain.strip().lower()
+    if domain not in DOMAINS and domain not in LEGACY_DOMAINS:
+        raise HTTPException(status_code=400, detail=f"Unsupported domain: {domain}. Must be one of {DOMAINS}.")
+
+    if date:
+        try:
+            parsed_date = datetime.date.fromisoformat(date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format, expected YYYY-MM-DD.")
+        report = get_domain_report_by_date(domain, parsed_date)
+    else:
+        report = get_latest_domain_report(domain)
+
+    if not report:
+        raise HTTPException(status_code=404, detail=f"No stored report found for domain '{domain}'" + (f" on {date}" if date else "") + ".")
+
+    return Response(
+        content=report["file_data"],
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={report['filename']}"},
+    )
 
 @router.get("/domain-reports/by-date")
 def get_domain_report_rows(
