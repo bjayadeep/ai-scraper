@@ -16,6 +16,10 @@ DOMAIN_REPORT_META = {
     "data_engineer": {"prefix": "DataEngineerJobs", "sheet": "Data Engineer Jobs", "title": "DATA ENGINEER JOB LEADS (1-6 YRS EXP)", "emoji": "🛠️"},
     "java": {"prefix": "JavaJobs", "sheet": "Java Jobs", "title": "JAVA DEVELOPER JOB LEADS (1-6 YRS EXP)", "emoji": "☕"},
     "dotnet": {"prefix": "DotNetJobs", "sheet": ".NET Jobs", "title": ".NET DEVELOPER JOB LEADS (1-6 YRS EXP)", "emoji": "🔷"},
+    # Legacy: "data" was replaced by data_analyst/data_engineer and is no longer generated
+    # (see orchestrator.DOMAINS), but reports saved under it before the split still exist in
+    # the DB and stay readable/labeled correctly rather than silently breaking.
+    "data": {"prefix": "DataJobs", "sheet": "Data Jobs", "title": "DATA ENGINEERING / ANALYTICS JOB LEADS (1-6 YRS EXP)", "emoji": "📊"},
 }
 
 def generate_styled_excel(jobs: List[Dict[str, Any]], domain: str = "cyber") -> str:

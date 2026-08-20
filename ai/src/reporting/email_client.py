@@ -57,6 +57,9 @@ DOMAIN_EMAIL_META = {
     "data_engineer": {"heading": "Data Engineer", "emoji": "🛠️"},
     "java": {"heading": "Java Developer", "emoji": "☕"},
     "dotnet": {"heading": ".NET Developer", "emoji": "🔷"},
+    # Legacy: kept so a historical "data"-domain report (pre-split) still emails with a
+    # correct heading if resent, rather than falling back to a generic label.
+    "data": {"heading": "Data Engineering / Analytics", "emoji": "📊"},
 }
 
 def build_domain_section_html(domain: str, jobs: List[Dict[str, Any]]) -> str:

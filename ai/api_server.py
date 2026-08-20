@@ -827,13 +827,17 @@ def update_sys_settings(req: SettingsUpdate, db: Session = Depends(get_db), curr
 
 
 # 8. Domain Jobs Endpoints — resend the latest stored per-domain report on demand
+# Domains retired from active generation (see orchestrator.DOMAINS) but whose past reports
+# are still stored and should stay readable/sendable rather than 400ing.
+LEGACY_DOMAINS = {"data"}
+
 @router.get("/domain-reports/latest")
 def get_domain_report_status(
     domain: str = Query(...),
     current_user: User = Depends(get_current_user)
 ):
     domain = domain.strip().lower()
-    if domain not in DOMAINS:
+    if domain not in DOMAINS and domain not in LEGACY_DOMAINS:
         raise HTTPException(status_code=400, detail=f"Unsupported domain: {domain}. Must be one of {DOMAINS}.")
 
     report = get_latest_domain_report(domain)
@@ -855,7 +859,7 @@ def get_domain_report_status(
 def get_domain_report_dates_endpoint(domain: str = Query(...), current_user: User = Depends(get_current_user)):
     """Every date a report was stored for a domain, newest first -- powers the Job Leads date picker."""
     domain = domain.strip().lower()
-    if domain not in DOMAINS:
+    if domain not in DOMAINS and domain not in LEGACY_DOMAINS:
         raise HTTPException(status_code=400, detail=f"Unsupported domain: {domain}. Must be one of {DOMAINS}.")
     return {"domain": domain, "dates": get_domain_report_dates(domain)}
 
@@ -871,7 +875,7 @@ def get_domain_report_rows(
     UI can render either source.
     """
     domain = domain.strip().lower()
-    if domain not in DOMAINS:
+    if domain not in DOMAINS and domain not in LEGACY_DOMAINS:
         raise HTTPException(status_code=400, detail=f"Unsupported domain: {domain}. Must be one of {DOMAINS}.")
     try:
         parsed_date = datetime.date.fromisoformat(date)
@@ -1028,7 +1032,7 @@ def send_domain_report(
     current_user: User = Depends(get_current_user)
 ):
     domain = req.domain.strip().lower()
-    if domain != "all" and domain not in DOMAINS:
+    if domain != "all" and domain not in DOMAINS and domain not in LEGACY_DOMAINS:
         raise HTTPException(status_code=400, detail=f"Unsupported domain: {domain}. Must be 'all' or one of {DOMAINS}.")
 
     # Resolve the clients picked on the dashboard once, shared by every domain below. With
