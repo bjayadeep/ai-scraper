@@ -424,21 +424,22 @@ def validate_and_detect_ats(ats: str, token: Optional[str], careers_url: Optiona
         if not parsed.scheme or not parsed.netloc:
             raise HTTPException(status_code=400, detail="Invalid Careers Page URL.")
             
-        # Verify reachability via HTTP 200
+        # Best-effort reachability check only -- never a hard blocker. A plain requests.get()
+        # here has no JS execution and a much weaker TLS/browser fingerprint than the real
+        # PlaywrightScraper that actually scrapes this company later, so it can fail (bot
+        # protection, WAF challenge, etc.) on a perfectly real, scrapable site -- confirmed
+        # in practice against real companies whose sites a full browser loads fine. Real
+        # verification happens naturally when the scraper actually runs, same as any other
+        # playwright-tier company.
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
             resp = requests.get(url_str, headers=headers, timeout=15, allow_redirects=True)
-            if resp.status_code != 200:
-                raise ValueError(f"Status code {resp.status_code}")
-        except HTTPException:
-            raise
+            if resp.status_code >= 400:
+                print(f"Playwright add: {company_name}'s careers URL returned {resp.status_code} on a plain HTTP check -- accepting anyway, since bot-protected sites often still work via the real browser scraper.")
         except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Careers URL is unreachable or returned non-200 status code: {str(e)}"
-            )
+            print(f"Playwright add: {company_name}'s careers URL failed a plain HTTP reachability check ({e}) -- accepting anyway, since bot-protected sites often still work via the real browser scraper.")
         return "playwright"
 
     # 6. "All" (Try to auto-detect)
