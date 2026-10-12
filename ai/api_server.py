@@ -126,7 +126,6 @@ class SettingsUpdate(BaseModel):
     max_experience: int
     company_cooldown_days: Optional[int] = 14
     history_retention_days: Optional[int] = 14
-    use_ai_filter: bool
     smtp_host: str
     smtp_port: int
     smtp_user: str
@@ -754,7 +753,6 @@ def get_sys_settings(current_user: User = Depends(get_current_admin)):
         "max_experience": settings.EXPERIENCE_MAX_YEARS,
         "company_cooldown_days": settings.COMPANY_COOLDOWN_DAYS,
         "history_retention_days": settings.HISTORY_RETENTION_DAYS,
-        "use_ai_filter": settings.USE_AI_FILTER,
         "smtp_host": settings.SMTP_HOST,
         "smtp_port": settings.SMTP_PORT,
         "smtp_user": settings.SMTP_USER,
@@ -776,7 +774,6 @@ def update_sys_settings(req: SettingsUpdate, db: Session = Depends(get_db), curr
         "max_experience": str(req.max_experience),
         "company_cooldown_days": str(cooldown),
         "history_retention_days": str(retention),
-        "use_ai_filter": "true" if req.use_ai_filter else "false",
         "smtp_host": req.smtp_host,
         "smtp_port": str(req.smtp_port),
         "smtp_user": req.smtp_user,
@@ -813,7 +810,6 @@ def update_sys_settings(req: SettingsUpdate, db: Session = Depends(get_db), curr
         "MAX_EXPERIENCE": str(req.max_experience),
         "COMPANY_COOLDOWN_DAYS": str(cooldown),
         "HISTORY_RETENTION_DAYS": str(retention),
-        "USE_AI_FILTER": "true" if req.use_ai_filter else "false",
         "SMTP_HOST": req.smtp_host,
         "SMTP_PORT": str(req.smtp_port),
         "SMTP_USER": req.smtp_user,
@@ -853,13 +849,12 @@ def update_sys_settings(req: SettingsUpdate, db: Session = Depends(get_db), curr
         # Update setting constants dynamically in settings.py module wrapper if needed
         settings.EXPERIENCE_MIN_YEARS = req.min_experience
         settings.EXPERIENCE_MAX_YEARS = req.max_experience
-        settings.USE_AI_FILTER = req.use_ai_filter
-        
+
         # Log setting change
         log = ActivityLog(
             user_id=current_user.id,
             action="SETTINGS_CHANGE",
-            details=f"Updated scraper criteria: Exp range [{req.min_experience} - {req.max_experience} yrs], AI Filter={req.use_ai_filter}"
+            details=f"Updated scraper criteria: Exp range [{req.min_experience} - {req.max_experience} yrs]"
         )
         db.add(log)
         db.commit()
